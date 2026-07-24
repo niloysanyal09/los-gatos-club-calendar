@@ -24,7 +24,9 @@ export async function webAgentJSON<T>(
       max_tokens: 8000,
       tools: [
         {
-          type: "web_search_20250305",
+          // Latest web-search variant: dynamically filters results before they
+          // hit context — important for reading club calendars & listings
+          type: "web_search_20260209" as "web_search_20250305",
           name: "web_search",
           max_uses: maxSearches,
         },
