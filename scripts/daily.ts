@@ -45,9 +45,13 @@ async function processUser(user: { id: string; name: string | null; phone: strin
     data: { status: "expired" },
   });
 
-  // 3. Discover what's new out in the world (dedupes internally), re-rank, re-check conflicts
-  const summary = await runDiscovery(user.id);
-  console.log(`  ${tag}: +${summary.added} new events (${summary.mode} mode)`, summary.laneCounts);
+  // 3. Discover what's new (dedupes internally), re-rank, re-check conflicts.
+  //    Deep scan (all lanes) once a week; cheap light scan (events + TV) daily.
+  //    JARVIS_DEEP_DAY: 0=Sunday … 6=Saturday, default Sunday.
+  const deepDay = Number(process.env.JARVIS_DEEP_DAY ?? 0);
+  const scan = new Date().getDay() === deepDay ? "deep" : "light";
+  const summary = await runDiscovery(user.id, { scan });
+  console.log(`  ${tag}: ${scan} scan, +${summary.added} new events (${summary.mode} mode)`, summary.laneCounts);
 
   // 4. Text only what's new
   if (user.phone && user.channel !== "web") {

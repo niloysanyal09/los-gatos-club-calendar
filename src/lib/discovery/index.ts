@@ -5,19 +5,45 @@ import { scoreEvents } from "../ranking/scorer";
 import { anthropicConfigured } from "../anthropic";
 import { demoEvents } from "./demoData";
 import { ticketmasterLane, webAgentLane } from "./lanes";
+import { underBudget, MONTHLY_BUDGET_USD } from "../spend";
 import { dedupeKey, DiscoveryContext, Lane, RawEvent } from "./types";
 
-const LANES: Lane[] = ["clubs", "movies", "events", "tv-sports"];
+const ALL_LANES: Lane[] = ["clubs", "movies", "events", "tv-sports"];
+
+/**
+ * Scan modes (the cost lever):
+ * - deep:  all 4 lanes, 4 searches each (~$0.40-0.60) — weekly
+ * - light: fast-changing lanes only (events, TV), 2 searches each (~$0.10-0.15) — daily
+ */
+const MODES = {
+  deep: { lanes: ALL_LANES, searches: 4 },
+  light: { lanes: ["events", "tv-sports"] as Lane[], searches: 2 },
+};
 
 export interface DiscoverySummary {
   found: number;
   added: number;
-  mode: "live" | "demo";
+  mode: "live" | "demo" | "budget-capped";
   laneCounts: Record<string, number>;
 }
 
 /** Full discovery + ranking + conflict-check pass for one user. */
-export async function runDiscovery(userId: string): Promise<DiscoverySummary> {
+export async function runDiscovery(
+  userId: string,
+  opts: { scan?: keyof typeof MODES } = {}
+): Promise<DiscoverySummary> {
+  // Hard monthly budget gate — when estimated spend hits the cap, skip all
+  // API calls until the 1st of next month. Existing proposals remain usable.
+  if (anthropicConfigured() && !(await underBudget())) {
+    console.warn(`discovery skipped: monthly budget of $${MONTHLY_BUDGET_USD} reached`);
+    const proposals = await prisma.candidateEvent.findMany({
+      where: { userId, status: "proposed" },
+    });
+    const laneCounts: Record<string, number> = {};
+    for (const p of proposals) laneCounts[p.lane] = (laneCounts[p.lane] ?? 0) + 1;
+    return { found: 0, added: 0, mode: "budget-capped", laneCounts };
+  }
+  const scan = MODES[opts.scan ?? "deep"];
   const user = await prisma.user.findUnique({
     where: { id: userId },
     include: { profile: true },
@@ -41,7 +67,7 @@ export async function runDiscovery(userId: string): Promise<DiscoverySummary> {
     mode = "live";
     const [tm, ...agentLanes] = await Promise.all([
       ticketmasterLane(ctx),
-      ...LANES.map((lane) => webAgentLane(lane, ctx)),
+      ...scan.lanes.map((lane) => webAgentLane(lane, ctx, scan.searches)),
     ]);
     all = [...tm, ...agentLanes.flatMap((r) => r ?? [])];
   }

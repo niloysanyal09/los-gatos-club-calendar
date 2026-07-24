@@ -4,6 +4,7 @@ import { anthropicConfigured } from "@/lib/anthropic";
 import { googleConfigured } from "@/lib/google/oauth";
 import { parseLearned } from "@/lib/preferences/learner";
 import { getSessionUser } from "@/lib/session";
+import { monthToDateSpend, MONTHLY_BUDGET_USD } from "@/lib/spend";
 
 export const dynamic = "force-dynamic";
 
@@ -25,6 +26,7 @@ export default async function SettingsPage() {
   const teams: string[] = JSON.parse(user.profile?.sportsTeams ?? "[]");
   const clubs: string[] = JSON.parse(user.profile?.memberClubs ?? "[]");
   const learned = parseLearned(user.profile?.learned ?? "{}");
+  const spent = await monthToDateSpend();
   const affinities = Object.entries(learned.categoryAffinity).sort((a, b) => b[1] - a[1]);
 
   return (
@@ -80,6 +82,22 @@ export default async function SettingsPage() {
         <span className="badge">
           {user.channel === "web" ? "web only" : `${user.channel} → ${user.phone ?? "no number"}`}
         </span>
+      </div>
+
+      <h2>API budget</h2>
+      <div className="card row spread">
+        <span>This month&apos;s estimated AI spend</span>
+        <span
+          className="badge"
+          style={{ color: spent < MONTHLY_BUDGET_USD * 0.8 ? "var(--good)" : "var(--warn)" }}
+        >
+          ${spent.toFixed(2)} of ${MONTHLY_BUDGET_USD} cap
+        </span>
+      </div>
+      <div className="notice">
+        Weekly deep scan (all lanes, Sundays) + daily light scan (events &amp; TV).
+        When the cap is reached, discovery pauses until the 1st — bookings and
+        replies keep working on already-found events.
       </div>
 
       <h2>Payments</h2>

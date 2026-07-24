@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { recordSpend } from "./spend";
 
 export function anthropicConfigured() {
   return !!process.env.ANTHROPIC_API_KEY;
@@ -38,6 +39,11 @@ export async function webAgentJSON<T>(
     if (msg.stop_reason === "max_tokens") {
       console.error("webAgentJSON: hit max_tokens — output truncated");
     }
+    await recordSpend({
+      inputTokens: msg.usage.input_tokens,
+      outputTokens: msg.usage.output_tokens,
+      searches: msg.usage.server_tool_use?.web_search_requests ?? 0,
+    });
     const text = msg.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
       .map((b) => b.text)
@@ -64,6 +70,11 @@ export async function claudeJSON<T>(prompt: string): Promise<T | null> {
       model: "claude-sonnet-5",
       max_tokens: 8000,
       messages: [{ role: "user", content: prompt }],
+    });
+    await recordSpend({
+      inputTokens: msg.usage.input_tokens,
+      outputTokens: msg.usage.output_tokens,
+      searches: 0,
     });
     const text = msg.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")

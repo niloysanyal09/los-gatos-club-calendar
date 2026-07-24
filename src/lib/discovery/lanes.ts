@@ -36,9 +36,10 @@ type AgentEvent = Omit<RawEvent, "lane" | "source" | "distanceMiles">;
 
 export async function webAgentLane(
   lane: Lane,
-  ctx: DiscoveryContext
+  ctx: DiscoveryContext,
+  maxSearches?: number
 ): Promise<RawEvent[] | null> {
-  const found = await webAgentJSON<AgentEvent[]>(lanePrompt(lane, ctx));
+  const found = await webAgentJSON<AgentEvent[]>(lanePrompt(lane, ctx), maxSearches);
   if (!found || !Array.isArray(found)) return null;
   return found
     .filter((e) => e && e.title && e.startTime && !isNaN(Date.parse(e.startTime)))

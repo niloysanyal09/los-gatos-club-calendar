@@ -74,6 +74,18 @@ model CandidateEvent {
   @@index([userId, status])
 }
 
+// One row per Claude API call — powers the monthly budget guard
+model SpendLog {
+  id           String   @id @default(cuid())
+  inputTokens  Int
+  outputTokens Int
+  searches     Int
+  estCostUsd   Float
+  createdAt    DateTime @default(now())
+
+  @@index([createdAt])
+}
+
 model FeedbackEvent {
   id          String   @id @default(cuid())
   userId      String
