@@ -13,6 +13,7 @@
  *      so only genuinely new events enter the pipeline.
  *   4. The SMS digest sends ONLY picks never texted before.
  */
+import "./loadEnv";
 import { prisma } from "../src/lib/db";
 import { runDiscovery } from "../src/lib/discovery";
 import { applyFeedback } from "../src/lib/preferences/learner";

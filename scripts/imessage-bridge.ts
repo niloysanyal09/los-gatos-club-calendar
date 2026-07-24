@@ -13,6 +13,7 @@
  *
  *   npx tsx scripts/imessage-bridge.ts
  */
+import "./loadEnv";
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { prisma } from "../src/lib/db";

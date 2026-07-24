@@ -5,7 +5,8 @@ const JSON_SHAPE = `Respond with ONLY a JSON array (no prose) of objects:
 {"category": string, "title": string, "description": string, "venueName": string,
  "venueAddress": string, "startTime": "ISO 8601 with timezone offset", "endTime": "ISO 8601 or null",
  "cost": string, "url": string}
-Only include real events you actually found, with real dates in the next 14 days. If unsure of an exact time, use your best estimate from the source page. Return [] if nothing found.`;
+Rules: at most 8 events — the BEST matches, not an exhaustive list. Keep descriptions under 20 words.
+Only include real events whose date you saw on a source page from your searches, with dates in the next 14 days — skip anything you cannot date-verify (stale listings and past seasons are worse than fewer results). If unsure of exact time, estimate from the source page. Return [] if nothing found.`;
 
 function lanePrompt(lane: Lane, ctx: DiscoveryContext): string {
   const loc = `within ${ctx.radiusMiles} miles of ${ctx.address} (lat ${ctx.lat.toFixed(4)}, lng ${ctx.lng.toFixed(4)})`;
