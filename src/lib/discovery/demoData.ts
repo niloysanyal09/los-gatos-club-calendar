@@ -58,6 +58,37 @@ export function demoEvents(): RawEvent[] {
       ...pt(2026, 7, 29, 18, 0, 1.5),
     },
 
+    // — Private clubs (real clubs; public event pages linked — member
+    //    calendars behind login are a pilot feature via ICS feeds) —
+    {
+      lane: "clubs",
+      category: "tennis",
+      title: "Margarita Mixer — doubles tournament, Ladera Oaks",
+      description:
+        "From the club's public events calendar: doubles tennis tournament + social. Summer event; date estimated — confirm with club at the link.",
+      venueName: "Ladera Oaks Swim & Tennis Club",
+      venueAddress: "3249 Alpine Rd, Portola Valley, CA",
+      distanceMiles: 3.9,
+      cost: "Members & guests",
+      url: "https://www.laderaoaks.com/events",
+      source: "demo",
+      ...pt(2026, 8, 8, 16, 0, 3),
+    },
+    {
+      lane: "clubs",
+      category: "swimming",
+      title: "Labor Day Luau — Ladera Oaks end-of-summer party",
+      description:
+        "From the club's public events calendar: tropical-themed poolside party. Labor Day anchor (Sep 7); confirm with club at the link.",
+      venueName: "Ladera Oaks Swim & Tennis Club",
+      venueAddress: "3249 Alpine Rd, Portola Valley, CA",
+      distanceMiles: 3.9,
+      cost: "Members & guests",
+      url: "https://www.laderaoaks.com/events",
+      source: "demo",
+      ...pt(2026, 9, 7, 12, 0, 4),
+    },
+
     // — Movies (real theatre, live showtimes at the link) —
     {
       lane: "movies",

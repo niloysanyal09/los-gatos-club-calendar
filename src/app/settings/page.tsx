@@ -23,6 +23,7 @@ export default async function SettingsPage() {
   if (!user) redirect("/onboarding");
   const interests: string[] = JSON.parse(user.profile?.statedInterests ?? "[]");
   const teams: string[] = JSON.parse(user.profile?.sportsTeams ?? "[]");
+  const clubs: string[] = JSON.parse(user.profile?.memberClubs ?? "[]");
   const learned = parseLearned(user.profile?.learned ?? "{}");
   const affinities = Object.entries(learned.categoryAffinity).sort((a, b) => b[1] - a[1]);
 
@@ -37,6 +38,10 @@ export default async function SettingsPage() {
         <div className="chips">{interests.map((i) => <span key={i} className="chip on">{i}</span>)}</div>
         <div className="meta" style={{ marginTop: 12 }}>Sports on TV</div>
         <div className="chips">{teams.map((t) => <span key={t} className="chip on">{t}</span>)}</div>
+        <div className="meta" style={{ marginTop: 12 }}>My clubs (calendars watched daily)</div>
+        <div className="chips">
+          {clubs.length ? clubs.map((c) => <span key={c} className="chip on">{c}</span>) : <span className="meta">none yet — add via Edit profile</span>}
+        </div>
         <div style={{ marginTop: 14 }}>
           <Link href="/onboarding" className="btn btn-ghost">Edit profile</Link>
         </div>

@@ -11,9 +11,14 @@ function lanePrompt(lane: Lane, ctx: DiscoveryContext): string {
   const loc = `within ${ctx.radiusMiles} miles of ${ctx.address} (lat ${ctx.lat.toFixed(4)}, lng ${ctx.lng.toFixed(4)})`;
   const interests = ctx.interests.join(", ") || "general entertainment";
   switch (lane) {
-    case "clubs":
-      return `Find local clubs and studios ${loc} that offer sessions matching these interests: ${interests}.
-Think tennis clubs, run clubs, yoga/pilates studios, book clubs, hobby groups. For each relevant club, read its online schedule/calendar of upcoming sessions and events. ${JSON_SHAPE}`;
+    case "clubs": {
+      const member = ctx.memberClubs.length
+        ? `\nThe user is a MEMBER of these clubs — prioritize them and rank their events highly: ${ctx.memberClubs.join("; ")}.`
+        : "";
+      return `Find clubs and studios ${loc} with sessions matching these interests: ${interests}.
+ALWAYS include PRIVATE clubs (swim & racquet, golf/country, athletic, social clubs) in the sweep — read the public-facing events/calendar pages on their websites, which clubs publish to attract new members. Include those events regardless of whether the user is a member; note "Members & guests" in cost when applicable.${member}
+Also cover public options: run clubs, yoga/pilates studios, book clubs, hobby groups. If a club lists a recurring/annual event without an exact date (e.g. "Labor Day Luau"), estimate the date from its seasonal anchor and append "(date estimated — confirm with club)" to the description. ${JSON_SHAPE}`;
+    }
     case "movies":
       return `Find movie theatres ${loc} and their showtimes for the next 10 days.
 Select movies this person would plausibly enjoy given interests: ${interests}. Prefer one good showtime per movie (evenings/weekends). ${JSON_SHAPE}`;

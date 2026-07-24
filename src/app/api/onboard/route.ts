@@ -15,6 +15,7 @@ export async function POST(req: NextRequest) {
     radiusMiles,
     interests,
     sportsTeams,
+    memberClubs,
   } = body as {
     name?: string;
     email?: string;
@@ -24,6 +25,7 @@ export async function POST(req: NextRequest) {
     radiusMiles?: number;
     interests?: string[];
     sportsTeams?: string[];
+    memberClubs?: string[];
   };
 
   if (!address || !interests?.length) {
@@ -59,10 +61,12 @@ export async function POST(req: NextRequest) {
       userId: user.id,
       statedInterests: JSON.stringify(interests),
       sportsTeams: JSON.stringify(sportsTeams ?? []),
+      memberClubs: JSON.stringify(memberClubs ?? []),
     },
     update: {
       statedInterests: JSON.stringify(interests),
       sportsTeams: JSON.stringify(sportsTeams ?? []),
+      memberClubs: JSON.stringify(memberClubs ?? []),
     },
   });
 

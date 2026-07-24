@@ -9,6 +9,13 @@ const SUGGESTED_INTERESTS = [
   "food festivals", "wine tasting", "tech meetups", "book clubs",
   "art exhibits", "theater", "meditation", "cycling",
 ];
+const SUGGESTED_CLUBS = [
+  "Ladera Oaks Swim & Tennis Club",
+  "Sharon Heights Golf & Country Club",
+  "Menlo Circus Club",
+  "Alpine Hills Tennis & Swimming Club",
+  "Menlo Country Club",
+];
 const SUGGESTED_SPORTS = [
   "49ers", "Warriors", "Giants", "Stanford football", "ATP tennis",
   "Premier League", "F1", "NBA", "NFL", "cricket",
@@ -32,6 +39,8 @@ export default function OnboardForm({
   const [radius, setRadius] = useState(10);
   const [interests, setInterests] = useState<string[]>([]);
   const [teams, setTeams] = useState<string[]>([]);
+  const [clubs, setClubs] = useState<string[]>([]);
+  const [customClubs, setCustomClubs] = useState("");
   const [custom, setCustom] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -60,6 +69,10 @@ export default function OnboardForm({
       body: JSON.stringify({
         name, email, phone, channel, address,
         radiusMiles: radius, interests: allInterests, sportsTeams: teams,
+        memberClubs: [
+          ...clubs,
+          ...customClubs.split(",").map((s) => s.trim()).filter(Boolean),
+        ],
       }),
     });
     const data = await res.json();
@@ -113,6 +126,21 @@ export default function OnboardForm({
 
       <label>Anything else? (comma-separated)</label>
       <input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="salsa dancing, pottery, chess" />
+
+      <label>Private clubs you belong to (Jarvis reads their event calendars)</label>
+      <div className="chips">
+        {SUGGESTED_CLUBS.map((c) => (
+          <span key={c} className={`chip ${clubs.includes(c) ? "on" : ""}`} onClick={() => toggle(clubs, setClubs, c)}>
+            {c}
+          </span>
+        ))}
+      </div>
+      <input
+        style={{ marginTop: 8 }}
+        value={customClubs}
+        onChange={(e) => setCustomClubs(e.target.value)}
+        placeholder="other clubs, comma-separated"
+      />
 
       <label>Sports & teams you watch on TV</label>
       <div className="chips">

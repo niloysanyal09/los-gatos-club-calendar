@@ -78,3 +78,8 @@ to get it. Anything left blank degrades gracefully:
 - Future signal sources (pilot backlog): public social profiles (e.g. concert
   posts on Instagram/Facebook) feeding the same learned-affinity layer;
   payment portal on the webapp for ticketed bookings straight from a text.
+- **Private clubs**: users declare memberships (Ladera Oaks, Sharon Heights,
+  etc.) at onboarding; the daily clubs lane always reads those clubs' public
+  event pages. Member-only calendars (behind club logins) are a pilot
+  feature: most club platforms expose an iCal/ICS feed a member can paste in,
+  which slots into the same CandidateEvent pipeline.

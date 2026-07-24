@@ -31,6 +31,7 @@ export async function runDiscovery(userId: string): Promise<DiscoverySummary> {
     address: user.address ?? "Menlo Park, CA",
     interests: JSON.parse(user.profile.statedInterests || "[]"),
     sportsTeams: JSON.parse(user.profile.sportsTeams || "[]"),
+    memberClubs: JSON.parse(user.profile.memberClubs || "[]"),
   };
 
   // 1. Discover across lanes (live when Anthropic key present, demo otherwise)

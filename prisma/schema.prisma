@@ -36,6 +36,9 @@ model PreferenceProfile {
   statedInterests String   @default("[]")
   // JSON: string[] of teams/sports to watch on TV
   sportsTeams     String   @default("[]")
+  // JSON: string[] of private clubs the user belongs to (e.g. "Ladera Oaks",
+  // "Sharon Heights Golf & Country Club") — discovery reads their event pages
+  memberClubs     String   @default("[]")
   // JSON: { categoryAffinity: Record<string, number>, liked: string[], disliked: string[] }
   learned         String   @default("{\"categoryAffinity\":{},\"liked\":[],\"disliked\":[]}")
   updatedAt       DateTime @updatedAt

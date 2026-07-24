@@ -27,4 +27,5 @@ export interface DiscoveryContext {
   address: string;
   interests: string[];
   sportsTeams: string[];
+  memberClubs: string[];
 }
