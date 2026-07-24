@@ -18,6 +18,22 @@ function when(d: Date) {
   });
 }
 
+/** Short intro sent before the per-pick messages. */
+export function digestIntroText(name: string | null, count: number): string {
+  return `Hi${name ? " " + name.split(" ")[0] : ""}, it's Jarvis 👋 ${count} picks today — sent one per message below.\n\nTapback each one: 👍 book · 👎 pass · ‼️ maybe. (Or reply in words, e.g. "book 1 and 3".)`;
+}
+
+/** One compact message per pick — enables per-row Tapback reactions. */
+export function pickText(c: CandidateEvent): string {
+  const lines = [
+    `${c.digestIndex}. ${c.title}`,
+    `${when(c.startTime)}${c.venueName ? " · " + c.venueName : ""}${c.cost ? " · " + c.cost : ""}`,
+  ];
+  if (c.rationale) lines.push(c.rationale);
+  if (c.conflict) lines.push("⚠️ overlaps something on your calendar");
+  return lines.join("\n");
+}
+
 /** Render the numbered SMS digest. Items must already carry digestIndex. */
 export function digestText(name: string | null, items: CandidateEvent[]): string {
   const lines: string[] = [

@@ -1,8 +1,10 @@
 import { prisma } from "../db";
 import { applyAction } from "../feedback";
-import { confirmationText, digestText } from "./format";
+import { confirmationText, digestIntroText, pickText } from "./format";
 import { parseReply } from "./parser";
 import { sendMessage } from "./send";
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const DIGEST_SIZE = 8;
 
@@ -48,9 +50,14 @@ export async function sendDigest(userId: string, opts: { onlyNew?: boolean } = {
     });
   }
 
-  const body = digestText(user.name, picks);
-  const sent = await sendMessage(user.channel, user.phone, body);
-  return { ...sent, count: picks.length, preview: body };
+  // One message per pick so each can be Tapbacked (👍 book / 👎 pass / ‼️ maybe)
+  const intro = await sendMessage(user.channel, user.phone, digestIntroText(user.name, picks.length));
+  if (!intro.ok) return { ...intro, count: picks.length };
+  for (const pick of picks) {
+    await sleep(600); // keep Messages happy and the thread in order
+    await sendMessage(user.channel, user.phone, pickText(pick));
+  }
+  return { ok: true, count: picks.length };
 }
 
 /** Handle an inbound text from a user: parse decisions, book, reply. */

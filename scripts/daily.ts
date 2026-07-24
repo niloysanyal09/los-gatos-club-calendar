@@ -16,6 +16,8 @@
 import "./loadEnv";
 import { prisma } from "../src/lib/db";
 import { runDiscovery } from "../src/lib/discovery";
+import { applyAutoBookRules } from "../src/lib/rules";
+import { sendMessage } from "../src/lib/messaging/send";
 import { applyFeedback } from "../src/lib/preferences/learner";
 import { findDeletedBookings } from "../src/lib/google/calendar";
 import { sendDigest } from "../src/lib/messaging";
@@ -52,6 +54,17 @@ async function processUser(user: { id: string; name: string | null; phone: strin
   const scan = new Date().getDay() === deepDay ? "deep" : "light";
   const summary = await runDiscovery(user.id, { scan });
   console.log(`  ${tag}: ${scan} scan, +${summary.added} new events (${summary.mode} mode)`, summary.laneCounts);
+
+  // 3b. Standing rules: auto-book matches (e.g. "all India cricket") and say so
+  const autoBooked = await applyAutoBookRules(user.id);
+  if (autoBooked.length && user.phone && user.channel !== "web") {
+    await sendMessage(
+      user.channel,
+      user.phone,
+      `Auto-booked per your standing rules ✅\n${autoBooked.map((t) => "• " + t).join("\n")}`
+    );
+    console.log(`  ${tag}: auto-booked ${autoBooked.length} via standing rules`);
+  }
 
   // 4. Text only what's new
   if (user.phone && user.channel !== "web") {

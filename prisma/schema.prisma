@@ -39,6 +39,9 @@ model PreferenceProfile {
   // JSON: string[] of private clubs the user belongs to (e.g. "Ladera Oaks",
   // "Sharon Heights Golf & Country Club") — discovery reads their event pages
   memberClubs     String   @default("[]")
+  // JSON: string[] of standing auto-book rules, e.g. "india cricket" — any new
+  // discovery whose text contains all words of a rule is booked without asking
+  autoBookRules   String   @default("[]")
   // JSON: { categoryAffinity: Record<string, number>, liked: string[], disliked: string[] }
   learned         String   @default("{\"categoryAffinity\":{},\"liked\":[],\"disliked\":[]}")
   updatedAt       DateTime @updatedAt
