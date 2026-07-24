@@ -80,6 +80,8 @@ model SpendLog {
   inputTokens  Int
   outputTokens Int
   searches     Int
+  cacheRead    Int      @default(0)
+  cacheWrite   Int      @default(0)
   estCostUsd   Float
   createdAt    DateTime @default(now())
 

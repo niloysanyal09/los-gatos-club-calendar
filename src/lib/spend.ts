@@ -4,6 +4,8 @@ import { prisma } from "./db";
 // (ignores intro discounts) so the guard errs on the safe side.
 const INPUT_PER_TOKEN = 3 / 1_000_000;
 const OUTPUT_PER_TOKEN = 15 / 1_000_000;
+const CACHE_READ_PER_TOKEN = 0.3 / 1_000_000; // 10% of input price
+const CACHE_WRITE_PER_TOKEN = 3.75 / 1_000_000; // 1.25x input price
 const PER_SEARCH = 0.01;
 
 export const MONTHLY_BUDGET_USD = Number(process.env.JARVIS_MONTHLY_BUDGET ?? 20);
@@ -12,10 +14,14 @@ export async function recordSpend(usage: {
   inputTokens: number;
   outputTokens: number;
   searches: number;
+  cacheRead?: number;
+  cacheWrite?: number;
 }) {
   const estCostUsd =
     usage.inputTokens * INPUT_PER_TOKEN +
     usage.outputTokens * OUTPUT_PER_TOKEN +
+    (usage.cacheRead ?? 0) * CACHE_READ_PER_TOKEN +
+    (usage.cacheWrite ?? 0) * CACHE_WRITE_PER_TOKEN +
     usage.searches * PER_SEARCH;
   await prisma.spendLog.create({ data: { ...usage, estCostUsd } }).catch(() => {});
   return estCostUsd;

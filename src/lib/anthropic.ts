@@ -16,20 +16,28 @@ function client() {
  */
 export async function webAgentJSON<T>(
   prompt: string,
-  // Cost lever: each web search costs ~$0.01 plus the result tokens it pulls
-  // into context. 4/lane keeps a daily 4-lane run around $0.40-0.60.
-  maxSearches = Number(process.env.JARVIS_MAX_SEARCHES ?? 4)
+  // Cost levers: each web search costs ~$0.01 plus the result tokens it pulls
+  // into context, and model choice sets the token rate (Haiku ≈ 1/3 of
+  // Sonnet). Daily light scans run Haiku; the weekly deep scan runs Sonnet.
+  maxSearches = Number(process.env.JARVIS_MAX_SEARCHES ?? 4),
+  model = "claude-sonnet-5"
 ): Promise<T | null> {
   if (!anthropicConfigured()) return null;
   try {
     const msg = await client().messages.create({
-      model: "claude-sonnet-5",
+      model,
       max_tokens: 16000,
+      // Auto-cache the prompt prefix: the server-side search loop re-reads the
+      // growing context on every iteration — cached tokens bill at 10%.
+      // (SDK typings lag this top-level param; the API accepts it.)
+      ...({ cache_control: { type: "ephemeral" } } as object),
       tools: [
         {
-          // Latest web-search variant: dynamically filters results before they
-          // hit context — important for reading club calendars & listings
-          type: "web_search_20260209" as "web_search_20250305",
+          // Dynamic-filtering search variant on Sonnet/Opus; Haiku only
+          // supports the basic variant
+          type: (model.includes("haiku")
+            ? "web_search_20250305"
+            : "web_search_20260209") as "web_search_20250305",
           name: "web_search",
           max_uses: maxSearches,
         },
@@ -43,6 +51,8 @@ export async function webAgentJSON<T>(
       inputTokens: msg.usage.input_tokens,
       outputTokens: msg.usage.output_tokens,
       searches: msg.usage.server_tool_use?.web_search_requests ?? 0,
+      cacheRead: msg.usage.cache_read_input_tokens ?? 0,
+      cacheWrite: msg.usage.cache_creation_input_tokens ?? 0,
     });
     const text = msg.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")
@@ -75,6 +85,8 @@ export async function claudeJSON<T>(prompt: string): Promise<T | null> {
       inputTokens: msg.usage.input_tokens,
       outputTokens: msg.usage.output_tokens,
       searches: 0,
+      cacheRead: msg.usage.cache_read_input_tokens ?? 0,
+      cacheWrite: msg.usage.cache_creation_input_tokens ?? 0,
     });
     const text = msg.content
       .filter((b): b is Anthropic.TextBlock => b.type === "text")

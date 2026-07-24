@@ -16,8 +16,16 @@ const ALL_LANES: Lane[] = ["clubs", "movies", "events", "tv-sports"];
  * - light: fast-changing lanes only (events, TV), 2 searches each (~$0.10-0.15) — daily
  */
 const MODES = {
-  deep: { lanes: ALL_LANES, searches: 4 },
-  light: { lanes: ["events", "tv-sports"] as Lane[], searches: 2 },
+  // Weekly deep scan: Sonnet quality across all lanes (~$1.50-2 cached)
+  deep: { lanes: ALL_LANES, searches: 4, model: "claude-sonnet-5" },
+  // Daily light scan: Haiku on the fast-changing lanes (~$0.20-0.25) — simple
+  // event extraction where the cheaper model is sufficient. Ranking stays on
+  // Sonnet either way.
+  light: {
+    lanes: ["events", "tv-sports"] as Lane[],
+    searches: 2,
+    model: process.env.JARVIS_LIGHT_MODEL ?? "claude-haiku-4-5",
+  },
 };
 
 export interface DiscoverySummary {
@@ -67,7 +75,7 @@ export async function runDiscovery(
     mode = "live";
     const [tm, ...agentLanes] = await Promise.all([
       ticketmasterLane(ctx),
-      ...scan.lanes.map((lane) => webAgentLane(lane, ctx, scan.searches)),
+      ...scan.lanes.map((lane) => webAgentLane(lane, ctx, scan.searches, scan.model)),
     ]);
     all = [...tm, ...agentLanes.flatMap((r) => r ?? [])];
   }
