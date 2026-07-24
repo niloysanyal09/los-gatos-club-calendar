@@ -26,9 +26,13 @@ Select movies this person would plausibly enjoy given interests: ${interests}. P
     case "events":
       return `Find local events ${loc} in the next 14 days: concerts, live music, meetups, festivals, community activities, talks.
 Match to these interests: ${interests}. Check Eventbrite, Meetup, local city calendars, venue sites. ${JSON_SHAPE}`;
-    case "tv-sports":
-      return `Find upcoming televised sporting events in the next 10 days for these teams/sports: ${ctx.sportsTeams.join(", ") || interests}.
+    case "tv-sports": {
+      const cricket = ctx.sportsTeams.some((t) => /cricket/i.test(t))
+        ? `\nCRICKET: check Willow TV's schedule (willow.tv) first — it carries most international and franchise cricket in the US. Include upcoming matches (internationals, IPL/T20 leagues, The Hundred) with how to watch: Willow (via Sling, DirecTV, Spectrum, or the Willow app), ESPN+, or other US streamers. Put the channel/app in venueName.`
+        : "";
+      return `Find upcoming televised sporting events in the next 10 days for these teams/sports: ${ctx.sportsTeams.join(", ") || interests}.${cricket}
 Use TV guides / league schedules. venueName should be the TV channel or streaming service. All times US Pacific. ${JSON_SHAPE}`;
+    }
   }
 }
 

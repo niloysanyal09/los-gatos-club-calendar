@@ -172,6 +172,18 @@ export function demoEvents(): RawEvent[] {
     },
     {
       lane: "tv-sports",
+      category: "cricket",
+      title: "International cricket on Willow TV (today's fixtures at link)",
+      description:
+        "Willow carries most international & franchise cricket in the US. Watch via the Willow app, Sling, DirecTV, or Spectrum — live schedule at the link.",
+      venueName: "Willow TV",
+      cost: "Willow subscription / TV package",
+      url: "https://www.willow.tv/schedule",
+      source: "demo",
+      ...pt(2026, 7, 25, 6, 0, 4),
+    },
+    {
+      lane: "tv-sports",
       category: "baseball",
       title: "SF Giants on NBC Sports Bay Area (evening game)",
       description: "Catch the Giants from home — full TV schedule and matchups at the link.",

@@ -61,13 +61,25 @@ function heuristicScore(
   for (const e of events) {
     const hay = `${e.category ?? ""} ${e.title} ${e.description ?? ""}`.toLowerCase();
     let score = 50;
-    const hits = terms.filter((t) => t && hay.includes(t));
+    // Match the whole term or any significant word in it, so "cricket (Willow TV)"
+    // still matches an event tagged "cricket"
+    const hits = terms.filter(
+      (t) =>
+        t &&
+        (hay.includes(t) ||
+          t.split(/[^a-z0-9+]+/).some((w) => w.length > 3 && hay.includes(w)))
+    );
     score += Math.min(30, hits.length * 15);
     const affinity = e.category ? (profile.learned.categoryAffinity[e.category] ?? 0) : 0;
     score += Math.max(-25, Math.min(25, affinity * 5));
     if ((e.distanceMiles ?? 0) < 2) score += 5;
-    const rationale = hits.length
-      ? `Matches your interest in ${hits[0]}.`
+    // Prefer the hit that names the event's own category (e.g. "cricket"
+    // beats an incidental word overlap like "live")
+    const bestHit =
+      hits.find((t) => e.category && t.toLowerCase().includes(e.category.toLowerCase())) ??
+      hits[0];
+    const rationale = bestHit
+      ? `Matches your interest in ${bestHit}.`
       : `Popular ${e.lane === "tv-sports" ? "broadcast" : "local pick"} near you.`;
     map.set(e.id, { score: clamp(score), rationale });
   }
