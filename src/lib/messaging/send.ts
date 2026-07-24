@@ -22,9 +22,9 @@ async function sendViaIMessage(to: string, body: string) {
   const script = `
     on run {targetPhone, msgBody}
       tell application "Messages"
-        set svc to 1st account whose service type = iMessage
-        set buddy to participant targetPhone of svc
-        send msgBody to buddy
+        set targetService to 1st service whose service type = iMessage
+        set targetBuddy to buddy targetPhone of targetService
+        send msgBody to targetBuddy
       end tell
     end run`;
   try {
