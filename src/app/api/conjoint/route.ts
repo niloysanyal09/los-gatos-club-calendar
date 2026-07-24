@@ -21,9 +21,19 @@ export async function POST(req: NextRequest) {
     const cur = learned.categoryAffinity[tag] ?? 0;
     learned.categoryAffinity[tag] = Math.max(-10, Math.min(10, cur + d));
   }
+
+  // The game IS the interest survey for ad-click signups: winning category
+  // tags (not attr:*) become stated interests, merged with anything typed.
+  const existing: string[] = JSON.parse(profile.statedInterests || "[]");
+  const fromGame = Object.entries(deltas)
+    .filter(([tag, d]) => d > 0 && !tag.startsWith("attr:"))
+    .sort((a, b) => b[1] - a[1])
+    .map(([tag]) => tag);
+  const interests = [...new Set([...existing, ...fromGame])].slice(0, 12);
+
   await prisma.preferenceProfile.update({
     where: { userId },
-    data: { learned: JSON.stringify(learned) },
+    data: { learned: JSON.stringify(learned), statedInterests: JSON.stringify(interests) },
   });
   return NextResponse.json({ ok: true, learnedTags: Object.keys(deltas).length });
 }

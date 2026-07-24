@@ -28,8 +28,10 @@ export default function TasteGame() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ picks: next }),
     });
+    // Kick off the welcome text + first discovery, then hand off to SMS
+    await fetch("/api/welcome", { method: "POST" });
     setSaving(false);
-    router.push("/digest?onboarded=1");
+    router.push("/onboarding/done");
   }
 
   if (done) {

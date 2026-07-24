@@ -76,7 +76,12 @@ export async function handleInbound(userId: string, text: string) {
     const candidate = digest.find((d) => d.digestIndex === p.index);
     if (!candidate) continue;
     const { bookedOnCalendar } = await applyAction(candidate.id, p.action);
-    results.push({ title: candidate.title, action: p.action, booked: bookedOnCalendar });
+    results.push({
+      title: candidate.title,
+      action: p.action,
+      booked: bookedOnCalendar,
+      url: candidate.url,
+    });
   }
 
   const reply = results.length

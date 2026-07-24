@@ -30,6 +30,7 @@ export function pickText(c: CandidateEvent): string {
     `${when(c.startTime)}${c.venueName ? " · " + c.venueName : ""}${c.cost ? " · " + c.cost : ""}`,
   ];
   if (c.rationale) lines.push(c.rationale);
+  if (c.url) lines.push(`🎟 ${c.url}`);
   if (c.conflict) lines.push("⚠️ overlaps something on your calendar");
   return lines.join("\n");
 }
@@ -61,7 +62,7 @@ export function digestText(name: string | null, items: CandidateEvent[]): string
 }
 
 export function confirmationText(
-  results: { title: string; action: string; booked: boolean }[]
+  results: { title: string; action: string; booked: boolean; url?: string | null }[]
 ): string {
   if (!results.length)
     return "Got it — nothing booked. I'll keep learning from that.";
@@ -71,8 +72,11 @@ export function confirmationText(
   const snoozed = results.filter((r) => r.action === "snoozed");
   if (booked.length) {
     lines.push("Booked ✅");
-    for (const b of booked)
+    for (const b of booked) {
       lines.push(`• ${b.title}${b.booked ? " (on your Google Calendar)" : " (saved — link Google Calendar to sync)"}`);
+      // Last mile: pay / reserve on their phone browser
+      if (b.url) lines.push(`  🎟 Tickets/reserve: ${b.url}`);
+    }
   }
   if (passed.length) lines.push(`Passed on: ${passed.map((p) => p.title).join("; ")}`);
   if (snoozed.length) lines.push(`Maybe later: ${snoozed.map((p) => p.title).join("; ")}`);

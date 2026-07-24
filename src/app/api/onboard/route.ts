@@ -28,11 +28,10 @@ export async function POST(req: NextRequest) {
     memberClubs?: string[];
   };
 
-  if (!address || !interests?.length) {
-    return NextResponse.json(
-      { error: "address and at least one interest are required" },
-      { status: 400 }
-    );
+  // Only the address is required — the conjoint taste game supplies interests
+  // for the minimal ad-click funnel.
+  if (!address) {
+    return NextResponse.json({ error: "address is required" }, { status: 400 });
   }
 
   const { lat, lng } = await geocode(address);
@@ -59,12 +58,12 @@ export async function POST(req: NextRequest) {
     where: { userId: user.id },
     create: {
       userId: user.id,
-      statedInterests: JSON.stringify(interests),
+      statedInterests: JSON.stringify(interests ?? []),
       sportsTeams: JSON.stringify(sportsTeams ?? []),
       memberClubs: JSON.stringify(memberClubs ?? []),
     },
     update: {
-      statedInterests: JSON.stringify(interests),
+      statedInterests: JSON.stringify(interests ?? []),
       sportsTeams: JSON.stringify(sportsTeams ?? []),
       memberClubs: JSON.stringify(memberClubs ?? []),
     },

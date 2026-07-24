@@ -3,6 +3,8 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+// The ad-click funnel needs only phone + address — the taste game handles
+// interests. Power users can expand "Fine-tune" for chips, clubs, and teams.
 const SUGGESTED_INTERESTS = [
   "tennis", "running", "yoga", "hiking", "live jazz", "classical music",
   "rock concerts", "stand-up comedy", "sci-fi movies", "indie films",
@@ -54,12 +56,8 @@ export default function OnboardForm({
 
   async function submit(linkGoogle: boolean) {
     setError("");
-    const allInterests = [
-      ...interests,
-      ...custom.split(",").map((s) => s.trim()).filter(Boolean),
-    ];
-    if (!address || !allInterests.length) {
-      setError("Please enter your address and pick at least one interest.");
+    if (!phone || !address) {
+      setError("Your mobile number and address are all Jarvis needs.");
       return;
     }
     setBusy(true);
@@ -68,7 +66,12 @@ export default function OnboardForm({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         name, email, phone, channel, address,
-        radiusMiles: radius, interests: allInterests, sportsTeams: teams,
+        radiusMiles: radius,
+        interests: [
+          ...interests,
+          ...custom.split(",").map((s) => s.trim()).filter(Boolean),
+        ],
+        sportsTeams: teams,
         memberClubs: [
           ...clubs,
           ...customClubs.split(",").map((s) => s.trim()).filter(Boolean),
@@ -87,69 +90,71 @@ export default function OnboardForm({
 
   return (
     <div className="card" style={{ padding: 24 }}>
-      <label>Your name</label>
-      <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Niloy Sanyal" />
+      {!calendarLinked && (
+        <>
+          <label>Your name</label>
+          <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Your name" />
+          <label>Gmail address</label>
+          <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@gmail.com" />
+        </>
+      )}
 
-      <label>Email</label>
-      <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
-
-      <label>Mobile number (for the SMS/iMessage digest)</label>
+      <label>Mobile number — Jarvis texts you your picks</label>
       <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 650 555 0100" />
 
-      <label>How should Jarvis text you?</label>
-      <div className="chips">
-        {[
-          ["imessage", "iMessage (from this Mac)"],
-          ["sms", "SMS via Twilio (pilot)"],
-          ["web", "No texts — web only"],
-        ].map(([v, label]) => (
-          <span key={v} className={`chip ${channel === v ? "on" : ""}`} onClick={() => setChannel(v)}>
-            {label}
-          </span>
-        ))}
-      </div>
+      <label>Home address — events are found near here</label>
+      <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="street, city, state" />
 
-      <label>Home address (events searched within your radius of this)</label>
-      <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="925 Siskiyou Dr, Menlo Park, CA" />
+      <details style={{ marginTop: 20 }}>
+        <summary style={{ cursor: "pointer", color: "var(--muted)", fontSize: 14 }}>
+          Fine-tune (optional) — the taste game on the next screen covers this for most people
+        </summary>
 
-      <label>Radius: {radius} miles</label>
-      <input type="range" min={2} max={30} value={radius} onChange={(e) => setRadius(+e.target.value)} />
+        <label>Search radius: {radius} miles</label>
+        <input type="range" min={2} max={30} value={radius} onChange={(e) => setRadius(+e.target.value)} />
 
-      <label>What do you love? (tap all that apply)</label>
-      <div className="chips">
-        {SUGGESTED_INTERESTS.map((i) => (
-          <span key={i} className={`chip ${interests.includes(i) ? "on" : ""}`} onClick={() => toggle(interests, setInterests, i)}>
-            {i}
-          </span>
-        ))}
-      </div>
+        <label>Interests</label>
+        <div className="chips">
+          {SUGGESTED_INTERESTS.map((i) => (
+            <span key={i} className={`chip ${interests.includes(i) ? "on" : ""}`} onClick={() => toggle(interests, setInterests, i)}>
+              {i}
+            </span>
+          ))}
+        </div>
+        <input style={{ marginTop: 8 }} value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="anything else, comma-separated" />
 
-      <label>Anything else? (comma-separated)</label>
-      <input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="salsa dancing, pottery, chess" />
+        <label>Sports & teams you watch on TV</label>
+        <div className="chips">
+          {SUGGESTED_SPORTS.map((t) => (
+            <span key={t} className={`chip ${teams.includes(t) ? "on" : ""}`} onClick={() => toggle(teams, setTeams, t)}>
+              {t}
+            </span>
+          ))}
+        </div>
 
-      <label>Private clubs you belong to (Jarvis reads their event calendars)</label>
-      <div className="chips">
-        {SUGGESTED_CLUBS.map((c) => (
-          <span key={c} className={`chip ${clubs.includes(c) ? "on" : ""}`} onClick={() => toggle(clubs, setClubs, c)}>
-            {c}
-          </span>
-        ))}
-      </div>
-      <input
-        style={{ marginTop: 8 }}
-        value={customClubs}
-        onChange={(e) => setCustomClubs(e.target.value)}
-        placeholder="other clubs, comma-separated"
-      />
+        <label>Private clubs you belong to (Jarvis reads their event calendars)</label>
+        <div className="chips">
+          {SUGGESTED_CLUBS.map((c) => (
+            <span key={c} className={`chip ${clubs.includes(c) ? "on" : ""}`} onClick={() => toggle(clubs, setClubs, c)}>
+              {c}
+            </span>
+          ))}
+        </div>
+        <input style={{ marginTop: 8 }} value={customClubs} onChange={(e) => setCustomClubs(e.target.value)} placeholder="other clubs, comma-separated" />
 
-      <label>Sports & teams you watch on TV</label>
-      <div className="chips">
-        {SUGGESTED_SPORTS.map((t) => (
-          <span key={t} className={`chip ${teams.includes(t) ? "on" : ""}`} onClick={() => toggle(teams, setTeams, t)}>
-            {t}
-          </span>
-        ))}
-      </div>
+        <label>Text channel</label>
+        <div className="chips">
+          {[
+            ["imessage", "iMessage (POC, from this Mac)"],
+            ["sms", "SMS via Twilio (pilot)"],
+            ["web", "No texts — web only"],
+          ].map(([v, label]) => (
+            <span key={v} className={`chip ${channel === v ? "on" : ""}`} onClick={() => setChannel(v)}>
+              {label}
+            </span>
+          ))}
+        </div>
+      </details>
 
       {error && <p style={{ color: "var(--bad)", marginTop: 16 }}>{error}</p>}
 
@@ -161,10 +166,10 @@ export default function OnboardForm({
         ) : (
           <>
             <button className="btn-primary" disabled={busy} onClick={() => submit(true)}>
-              {busy ? "Saving…" : "Save & link Google Calendar"}
+              {busy ? "Saving…" : "Save & connect Google Calendar"}
             </button>
             <button className="btn-ghost" disabled={busy} onClick={() => submit(false)}>
-              Save & skip calendar for now
+              Skip calendar for now
             </button>
           </>
         )}
