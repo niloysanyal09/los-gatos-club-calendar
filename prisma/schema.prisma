@@ -1,0 +1,86 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                 String    @id @default(cuid())
+  email              String?   @unique
+  name               String?
+  phone              String? // SMS/iMessage delivery target
+  channel            String    @default("web") // web | imessage | sms
+  address            String?
+  lat                Float?
+  lng                Float?
+  radiusMiles        Float     @default(10)
+  googleAccessToken  String?
+  googleRefreshToken String?
+  googleTokenExpiry  DateTime?
+  calendarLinked     Boolean   @default(false)
+  createdAt          DateTime  @default(now())
+
+  profile    PreferenceProfile?
+  candidates CandidateEvent[]
+  feedback   FeedbackEvent[]
+}
+
+model PreferenceProfile {
+  id              String   @id @default(cuid())
+  userId          String   @unique
+  user            User     @relation(fields: [userId], references: [id])
+  // JSON: string[] of stated interests, e.g. ["tennis","live jazz","sci-fi movies"]
+  statedInterests String   @default("[]")
+  // JSON: string[] of teams/sports to watch on TV
+  sportsTeams     String   @default("[]")
+  // JSON: { categoryAffinity: Record<string, number>, liked: string[], disliked: string[] }
+  learned         String   @default("{\"categoryAffinity\":{},\"liked\":[],\"disliked\":[]}")
+  updatedAt       DateTime @updatedAt
+}
+
+model CandidateEvent {
+  id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id])
+  lane          String // clubs | movies | events | tv-sports
+  category      String? // e.g. tennis, jazz, nba
+  title         String
+  description   String?
+  venueName     String?
+  venueAddress  String?
+  distanceMiles Float?
+  startTime     DateTime
+  endTime       DateTime?
+  cost          String?
+  url           String?
+  source        String // ticketmaster | web-agent | demo
+  score         Int?
+  rationale     String?
+  conflict      Boolean   @default(false)
+  status        String    @default("proposed") // proposed | approved | declined | snoozed | booked
+  googleEventId String?
+  digestIndex   Int? // number assigned in the last SMS digest ("reply 1,3")
+  digestedAt    DateTime? // when this pick was first texted — daily digests only send new items
+  dedupeKey     String
+  createdAt     DateTime  @default(now())
+
+  @@unique([userId, dedupeKey])
+  @@index([userId, status])
+}
+
+model FeedbackEvent {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  candidateId String
+  lane        String
+  category    String?
+  title       String
+  action      String // approved | declined | snoozed
+  createdAt   DateTime @default(now())
+
+  @@index([userId])
+}

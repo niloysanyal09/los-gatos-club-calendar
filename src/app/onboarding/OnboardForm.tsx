@@ -1,0 +1,146 @@
+"use client";
+
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+
+const SUGGESTED_INTERESTS = [
+  "tennis", "running", "yoga", "hiking", "live jazz", "classical music",
+  "rock concerts", "stand-up comedy", "sci-fi movies", "indie films",
+  "food festivals", "wine tasting", "tech meetups", "book clubs",
+  "art exhibits", "theater", "meditation", "cycling",
+];
+const SUGGESTED_SPORTS = [
+  "49ers", "Warriors", "Giants", "Stanford football", "ATP tennis",
+  "Premier League", "F1", "NBA", "NFL", "cricket",
+];
+
+export default function OnboardForm({
+  initialName = "",
+  initialEmail = "",
+  calendarLinked = false,
+}: {
+  initialName?: string;
+  initialEmail?: string;
+  calendarLinked?: boolean;
+}) {
+  const router = useRouter();
+  const [name, setName] = useState(initialName);
+  const [email, setEmail] = useState(initialEmail);
+  const [phone, setPhone] = useState("");
+  const [channel, setChannel] = useState("imessage");
+  const [address, setAddress] = useState("");
+  const [radius, setRadius] = useState(10);
+  const [interests, setInterests] = useState<string[]>([]);
+  const [teams, setTeams] = useState<string[]>([]);
+  const [custom, setCustom] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+
+  const toggle = (
+    _list: string[],
+    set: React.Dispatch<React.SetStateAction<string[]>>,
+    v: string
+  ) =>
+    set((prev) => (prev.includes(v) ? prev.filter((x) => x !== v) : [...prev, v]));
+
+  async function submit(linkGoogle: boolean) {
+    setError("");
+    const allInterests = [
+      ...interests,
+      ...custom.split(",").map((s) => s.trim()).filter(Boolean),
+    ];
+    if (!address || !allInterests.length) {
+      setError("Please enter your address and pick at least one interest.");
+      return;
+    }
+    setBusy(true);
+    const res = await fetch("/api/onboard", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        name, email, phone, channel, address,
+        radiusMiles: radius, interests: allInterests, sportsTeams: teams,
+      }),
+    });
+    const data = await res.json();
+    setBusy(false);
+    if (!res.ok) { setError(data.error ?? "Something went wrong."); return; }
+    if (linkGoogle && data.googleConfigured) {
+      window.location.href = "/api/auth/google";
+    } else {
+      router.push("/onboarding/tastes");
+    }
+  }
+
+  return (
+    <div className="card" style={{ padding: 24 }}>
+      <label>Your name</label>
+      <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Niloy Sanyal" />
+
+      <label>Email</label>
+      <input value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" />
+
+      <label>Mobile number (for the SMS/iMessage digest)</label>
+      <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+1 650 555 0100" />
+
+      <label>How should Jarvis text you?</label>
+      <div className="chips">
+        {[
+          ["imessage", "iMessage (from this Mac)"],
+          ["sms", "SMS via Twilio (pilot)"],
+          ["web", "No texts — web only"],
+        ].map(([v, label]) => (
+          <span key={v} className={`chip ${channel === v ? "on" : ""}`} onClick={() => setChannel(v)}>
+            {label}
+          </span>
+        ))}
+      </div>
+
+      <label>Home address (events searched within your radius of this)</label>
+      <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="925 Siskiyou Dr, Menlo Park, CA" />
+
+      <label>Radius: {radius} miles</label>
+      <input type="range" min={2} max={30} value={radius} onChange={(e) => setRadius(+e.target.value)} />
+
+      <label>What do you love? (tap all that apply)</label>
+      <div className="chips">
+        {SUGGESTED_INTERESTS.map((i) => (
+          <span key={i} className={`chip ${interests.includes(i) ? "on" : ""}`} onClick={() => toggle(interests, setInterests, i)}>
+            {i}
+          </span>
+        ))}
+      </div>
+
+      <label>Anything else? (comma-separated)</label>
+      <input value={custom} onChange={(e) => setCustom(e.target.value)} placeholder="salsa dancing, pottery, chess" />
+
+      <label>Sports & teams you watch on TV</label>
+      <div className="chips">
+        {SUGGESTED_SPORTS.map((t) => (
+          <span key={t} className={`chip ${teams.includes(t) ? "on" : ""}`} onClick={() => toggle(teams, setTeams, t)}>
+            {t}
+          </span>
+        ))}
+      </div>
+
+      {error && <p style={{ color: "var(--bad)", marginTop: 16 }}>{error}</p>}
+
+      <div className="row" style={{ marginTop: 24 }}>
+        {calendarLinked ? (
+          <button className="btn-primary" disabled={busy} onClick={() => submit(false)}>
+            {busy ? "Saving…" : "Continue →"}
+          </button>
+        ) : (
+          <>
+            <button className="btn-primary" disabled={busy} onClick={() => submit(true)}>
+              {busy ? "Saving…" : "Save & link Google Calendar"}
+            </button>
+            <button className="btn-ghost" disabled={busy} onClick={() => submit(false)}>
+              Save & skip calendar for now
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
