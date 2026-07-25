@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { oauthClient } from "@/lib/google/oauth";
+import { resolveGoogleUser } from "@/lib/google/link";
+import { setSessionUser } from "@/lib/session";
 
 export async function GET(req: NextRequest) {
   const base = req.nextUrl.origin;
@@ -22,8 +24,12 @@ export async function GET(req: NextRequest) {
       email = info.data.email ?? undefined;
     } catch {}
 
+    // Returning user: if this Google email already has an account, attach the
+    // tokens there and discard the shell user created at sign-in.
+    const targetId = await resolveGoogleUser(userId, email);
+
     await prisma.user.update({
-      where: { id: userId },
+      where: { id: targetId },
       data: {
         name,
         email,
@@ -34,9 +40,11 @@ export async function GET(req: NextRequest) {
       },
     });
 
+    await setSessionUser(targetId);
+
     // Route by onboarding progress: questions → taste game → digest
     const user = await prisma.user.findUnique({
-      where: { id: userId },
+      where: { id: targetId },
       include: { profile: true },
     });
     let hasTastes = false;
