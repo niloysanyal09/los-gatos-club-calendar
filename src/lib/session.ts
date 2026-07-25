@@ -14,6 +14,12 @@ export async function getSessionUser() {
   return prisma.user.findUnique({ where: { id }, include: { profile: true } });
 }
 
+export async function clearSessionUser() {
+  const store = await cookies();
+  // Same path the cookie was written with, or the browser keeps the old one.
+  store.set(COOKIE, "", { httpOnly: true, sameSite: "lax", maxAge: 0, path: "/" });
+}
+
 export async function setSessionUser(userId: string) {
   const store = await cookies();
   store.set(COOKIE, userId, {

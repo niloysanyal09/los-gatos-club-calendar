@@ -31,7 +31,10 @@ export default async function SettingsPage() {
 
   return (
     <div>
-      <h1>Settings</h1>
+      <div className="row spread">
+        <h1>Settings</h1>
+        <a href="/api/logout" className="btn btn-ghost">Sign out</a>
+      </div>
       <p className="sub">{user.name ?? "You"} · {user.address} · {user.radiusMiles} mi radius</p>
 
       <h2>Profile</h2>

@@ -21,6 +21,71 @@ function check(label: string, ok: boolean, detail = "") {
   if (!ok) failures++;
 }
 
+/**
+ * The session cookie is the other half of the merge: resolving the right user
+ * is useless if the browser keeps pointing at the old one. These run against a
+ * live dev server and are skipped when one is not up.
+ */
+async function checkCookies() {
+  const base = process.env.TEST_BASE_URL ?? "http://localhost:3000";
+  console.log(`\nSession cookie — against ${base}`);
+
+  let signIn: Response;
+  try {
+    signIn = await fetch(`${base}/api/auth/google`, { redirect: "manual" });
+  } catch {
+    console.log("  SKIP  no dev server reachable (npm run dev, then re-run)");
+    return;
+  }
+
+  const setOnSignIn = signIn.headers.get("set-cookie") ?? "";
+  check("sign-in redirects to Google", signIn.status === 307);
+  check("sign-in sets jarvis_uid", /jarvis_uid=[^;]+/.test(setOnSignIn));
+
+  // The cookie has to match the state param, or the callback writes tokens to
+  // one user while the browser stays logged in as another.
+  const cookieId = setOnSignIn.match(/jarvis_uid=([^;]+)/)?.[1] ?? "";
+  const stateId = new URL(signIn.headers.get("location") ?? "http://x").searchParams.get("state");
+  check("cookie id matches the OAuth state param", !!cookieId && cookieId === stateId);
+
+  const logout = await fetch(`${base}/api/logout`, {
+    headers: { cookie: `jarvis_uid=${cookieId}` },
+    redirect: "manual",
+  });
+  const setOnLogout = logout.headers.get("set-cookie") ?? "";
+  check("logout redirects to /", logout.status === 307 && !!logout.headers.get("location")?.endsWith("/"));
+  check("logout expires the cookie", /jarvis_uid=;/.test(setOnLogout) && /Max-Age=0/i.test(setOnLogout));
+  check("logout keeps Path=/ so the browser really drops it", /Path=\//.test(setOnLogout));
+
+  const landing = await fetch(`${base}/`, { redirect: "manual" });
+  check("signed out, / serves the landing page", landing.status === 200);
+
+  const withSession = await fetch(`${base}/`, {
+    headers: { cookie: `jarvis_uid=${cookieId}` },
+    redirect: "manual",
+  });
+  check(
+    "signed in, / redirects to the digest",
+    withSession.status === 307 && !!withSession.headers.get("location")?.endsWith("/digest")
+  );
+
+  // The shell user that this check minted has no email, so it cannot collide
+  // with anyone; drop it so repeated runs do not litter the dev database.
+  // Needs its own client pointed at the dev file — the one in src/lib/db is
+  // already bound to the throwaway database the merge checks ran against.
+  if (cookieId) {
+    const { PrismaClient } = await import("@prisma/client");
+    const dev = new PrismaClient({
+      datasources: { db: { url: `file:${path.join(process.cwd(), "prisma", "dev.db")}` } },
+    });
+    const { count } = await dev.user.deleteMany({
+      where: { id: cookieId, email: null, address: null },
+    });
+    check("test shell user cleaned out of dev.db", count === 1);
+    await dev.$disconnect();
+  }
+}
+
 async function main() {
   rmSync(DB, { force: true });
   execFileSync("npx", ["prisma", "db", "push", "--skip-generate", "--accept-data-loss"], {
@@ -94,6 +159,8 @@ async function main() {
 
   await prisma.$disconnect();
   rmSync(DB, { force: true });
+
+  await checkCookies();
 
   console.log(failures === 0 ? "\nAll merge paths passed.\n" : `\n${failures} check(s) failed.\n`);
   process.exit(failures === 0 ? 0 : 1);
