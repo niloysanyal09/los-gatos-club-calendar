@@ -1,7 +1,14 @@
+import { findActiveConflict, parseConflicts, resolveConflict } from "../conflicts";
 import { prisma } from "../db";
 import { applyAction } from "../feedback";
-import { confirmationText, digestIntroText, pickText } from "./format";
-import { parseReply } from "./parser";
+import {
+  confirmationText,
+  conflictPromptText,
+  conflictResolvedText,
+  digestIntroText,
+  pickText,
+} from "./format";
+import { parseConflictReply, parseReply } from "./parser";
 import { sendMessage } from "./send";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -62,6 +69,43 @@ export async function sendDigest(userId: string, opts: { onlyNew?: boolean } = {
 
 /** Handle an inbound text from a user: parse decisions, book, reply. */
 export async function handleInbound(userId: string, text: string) {
+  // A live conflict question takes priority: REPLACE / KEEP mean nothing
+  // against the digest, and answering one is the user's most recent intent.
+  // Anything else falls through so they can reprioritise instead of answering.
+  const active = await findActiveConflict(userId);
+  if (active) {
+    const answer = parseConflictReply(text);
+    if (answer) {
+      const outcome = await resolveConflict(active.pending.id, answer);
+      const reply = outcome
+        ? conflictResolvedText(
+            outcome.resolution,
+            outcome.candidate.title,
+            outcome.removed,
+            outcome.bookedOnCalendar,
+            outcome.candidate.url
+          )
+        : "That booking is no longer pending — nothing changed.";
+      const u = await prisma.user.findUnique({ where: { id: userId } });
+      if (u?.phone) await sendMessage(u.channel, u.phone, reply);
+      return {
+        results: outcome
+          ? [
+              {
+                title: outcome.candidate.title,
+                action: outcome.resolution === "replace" ? "approved" : "declined",
+                booked: outcome.bookedOnCalendar,
+                url: outcome.candidate.url,
+              },
+            ]
+          : [],
+        conflictResolution: outcome?.resolution ?? null,
+        removed: outcome?.removed ?? [],
+        reply,
+      };
+    }
+  }
+
   const digest = await prisma.candidateEvent.findMany({
     where: { userId, digestIndex: { not: null }, status: "proposed" },
     orderBy: { digestIndex: "asc" },
@@ -72,10 +116,18 @@ export async function handleInbound(userId: string, text: string) {
   );
 
   const results = [];
+  const conflictPrompts: string[] = [];
   for (const p of parsed) {
     const candidate = digest.find((d) => d.digestIndex === p.index);
     if (!candidate) continue;
-    const { bookedOnCalendar } = await applyAction(candidate.id, p.action);
+    const { bookedOnCalendar, conflict } = await applyAction(candidate.id, p.action);
+    if (conflict) {
+      // Held, not booked — the user gets asked instead of told.
+      conflictPrompts.push(
+        conflictPromptText(candidate.title, candidate.startTime, conflict.conflicts)
+      );
+      continue;
+    }
     results.push({
       title: candidate.title,
       action: p.action,
@@ -84,9 +136,21 @@ export async function handleInbound(userId: string, text: string) {
     });
   }
 
-  const reply = results.length
-    ? confirmationText(results)
-    : 'I didn\'t catch a decision there. Reply with pick numbers to book (e.g. "1, 3"), "no 2" to pass, or "maybe 4".';
+  const reply = conflictPrompts.length
+    ? [results.length ? confirmationText(results) : null, ...conflictPrompts]
+        .filter(Boolean)
+        .join("\n\n")
+    : results.length
+      ? confirmationText(results)
+      : active
+        ? // A question is still open — re-ask it rather than sending generic
+          // digest help that ignores what we last asked.
+          conflictPromptText(
+            active.candidate.title,
+            active.candidate.startTime,
+            parseConflicts(active.pending)
+          )
+        : 'I didn\'t catch a decision there. Reply with pick numbers to book (e.g. "1, 3"), "no 2" to pass, or "maybe 4".';
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (user?.phone) await sendMessage(user.channel, user.phone, reply);

@@ -31,6 +31,73 @@ export function overlaps(
   return windows.some((w) => aStart < w.end && aEnd > w.start);
 }
 
+export interface ConflictingEvent {
+  id: string;
+  title: string;
+  start: Date;
+  end: Date;
+}
+
+/**
+ * Events on the primary calendar that overlap a proposed booking.
+ *
+ * Deliberately not freebusy: that returns anonymous busy blocks, and both the
+ * question we ask the user ("this clashes with Board dinner") and the REPLACE
+ * branch (delete by id) need the actual events.
+ *
+ * Returns null when the calendar is not linked, which is different from an
+ * empty array — no calendar means we cannot know, so we do not block booking.
+ */
+export async function findConflicts(
+  userId: string,
+  start: Date,
+  end: Date
+): Promise<ConflictingEvent[] | null> {
+  const auth = await authedClient(userId);
+  if (!auth) return null;
+  const cal = google.calendar({ version: "v3", auth });
+  const res = await cal.events.list({
+    calendarId: "primary",
+    timeMin: start.toISOString(),
+    timeMax: end.toISOString(),
+    singleEvents: true, // expand recurring series into instances
+    orderBy: "startTime",
+    maxResults: 25,
+  });
+
+  const out: ConflictingEvent[] = [];
+  for (const e of res.data.items ?? []) {
+    if (!e.id || e.status === "cancelled") continue;
+    // "Free" events and ones the user already declined are not real clashes,
+    // and an all-day entry (date, not dateTime) should not block a 7pm concert.
+    if (e.transparency === "transparent") continue;
+    if (e.attendees?.some((a) => a.self && a.responseStatus === "declined")) continue;
+    if (!e.start?.dateTime || !e.end?.dateTime) continue;
+    out.push({
+      id: e.id,
+      title: e.summary ?? "(untitled event)",
+      start: new Date(e.start.dateTime),
+      end: new Date(e.end.dateTime),
+    });
+  }
+  return out;
+}
+
+/** Remove an event from the primary calendar. Already-gone counts as success. */
+export async function deleteCalendarEvent(userId: string, eventId: string): Promise<boolean> {
+  const auth = await authedClient(userId);
+  if (!auth) return false;
+  const cal = google.calendar({ version: "v3", auth });
+  try {
+    await cal.events.delete({ calendarId: "primary", eventId });
+    return true;
+  } catch (err: unknown) {
+    const code = (err as { code?: number }).code;
+    if (code === 404 || code === 410) return true;
+    throw err;
+  }
+}
+
 /**
  * Detect Jarvis-booked events the user has since deleted from their calendar.
  * Returns the ids of Google events that no longer exist / were cancelled —

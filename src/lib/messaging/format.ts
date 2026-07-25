@@ -61,6 +61,59 @@ export function digestText(name: string | null, items: CandidateEvent[]): string
   return lines.join("\n");
 }
 
+function span(start: Date, end: Date) {
+  const sameDay = when(start).split(",")[0] === when(end).split(",")[0];
+  const endStr = end.toLocaleString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: "America/Los_Angeles",
+  });
+  return sameDay ? `${when(start)}-${endStr}` : `${when(start)} to ${when(end)}`;
+}
+
+/** The question asked when a booking would double-book the user. */
+export function conflictPromptText(
+  candidateTitle: string,
+  candidateStart: Date,
+  conflicts: { title: string; start: Date; end: Date }[]
+): string {
+  const list = conflicts.map((c) => `"${c.title}" (${span(c.start, c.end)})`).join(" and ");
+  const names = conflicts.map((c) => `"${c.title}"`).join(" and ");
+  return [
+    `About to book ${candidateTitle} (${when(candidateStart)}).`,
+    `That overlaps with ${list} already on your calendar.`,
+    "",
+    `Reply REPLACE to remove ${names} and book ${candidateTitle}.`,
+    `Reply KEEP to skip ${candidateTitle}.`,
+  ].join("\n");
+}
+
+/** Ack once the user has answered a conflict question. */
+export function conflictResolvedText(
+  resolution: "replace" | "keep",
+  candidateTitle: string,
+  removed: string[],
+  bookedOnCalendar: boolean,
+  url?: string | null
+): string {
+  if (resolution === "keep") {
+    return `Kept your existing plans, skipped ${candidateTitle}.\nI'll use this to sharpen next week's picks.`;
+  }
+  const lines = [
+    removed.length
+      ? `Removed ${removed.map((r) => `"${r}"`).join(" and ")} and booked ${candidateTitle} ✅`
+      : `Booked ${candidateTitle} ✅`,
+  ];
+  lines.push(
+    bookedOnCalendar
+      ? "It's on your Google Calendar."
+      : "Saved — but the calendar write failed, so check it before you go."
+  );
+  if (url) lines.push(`🎟 Tickets/reserve: ${url}`);
+  lines.push("I'll use this to sharpen next week's picks.");
+  return lines.join("\n");
+}
+
 export function confirmationText(
   results: { title: string; action: string; booked: boolean; url?: string | null }[]
 ): string {

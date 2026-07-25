@@ -56,7 +56,7 @@ async function processUser(user: { id: string; name: string | null; phone: strin
   console.log(`  ${tag}: ${scan} scan, +${summary.added} new events (${summary.mode} mode)`, summary.laneCounts);
 
   // 3b. Standing rules: auto-book matches (e.g. "all India cricket") and say so
-  const autoBooked = await applyAutoBookRules(user.id);
+  const { booked: autoBooked, conflicts: autoConflicts } = await applyAutoBookRules(user.id);
   if (autoBooked.length && user.phone && user.channel !== "web") {
     await sendMessage(
       user.channel,
@@ -64,6 +64,12 @@ async function processUser(user: { id: string; name: string | null; phone: strin
       `Auto-booked per your standing rules ✅\n${autoBooked.map((t) => "• " + t).join("\n")}`
     );
     console.log(`  ${tag}: auto-booked ${autoBooked.length} via standing rules`);
+  }
+  // Clashes are asked about one at a time — only the newest question is live,
+  // so sending several at once would leave all but the last unanswerable.
+  if (autoConflicts.length && user.phone && user.channel !== "web") {
+    await sendMessage(user.channel, user.phone, autoConflicts[autoConflicts.length - 1]);
+    console.log(`  ${tag}: ${autoConflicts.length} auto-book clash(es), asked about the newest`);
   }
 
   // 4. Text only what's new

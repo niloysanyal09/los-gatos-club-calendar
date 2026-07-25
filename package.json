@@ -8,6 +8,7 @@
     "start": "next start",
     "db:push": "prisma db push",
     "test:oauth": "tsx scripts/test-oauth-merge.ts",
+    "test:conflict": "tsx scripts/test-conflict-flow.ts",
     "daily": "tsx scripts/daily.ts",
     "bridge": "tsx scripts/imessage-bridge.ts"
   },

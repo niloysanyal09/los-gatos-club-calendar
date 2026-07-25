@@ -6,6 +6,22 @@ export interface ParsedAction {
 }
 
 /**
+ * Answer to a pending conflict question, or null if the reply is about
+ * something else — in which case the caller falls through to the normal
+ * digest parsing, so the user can reprioritise instead of answering.
+ *
+ * Word-boundary matched so "keeping Friday free" or a title containing
+ * "replacement" does not silently delete an event.
+ */
+export function parseConflictReply(text: string): "replace" | "keep" | null {
+  const t = text.toLowerCase();
+  const replace = /\breplace\b/.test(t);
+  const keep = /\bkeep\b/.test(t);
+  if (replace === keep) return null; // neither, or both — ambiguous
+  return replace ? "replace" : "keep";
+}
+
+/**
  * Parse a free-form SMS reply against the numbered digest.
  * Uses Claude when configured (handles "book the jazz one, skip the movie"),
  * with a regex fallback for the common numeric patterns.

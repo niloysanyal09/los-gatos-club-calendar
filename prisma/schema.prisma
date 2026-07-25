@@ -77,6 +77,23 @@ model CandidateEvent {
   @@index([userId, status])
 }
 
+// A booking held back because it clashes with something already on the
+// calendar. Lives until the user replies REPLACE / KEEP, or until it expires.
+model PendingConflict {
+  id          String    @id @default(cuid())
+  userId      String
+  candidateId String
+  // JSON: [{ id, title, start, end }] of the Google events that overlap
+  conflicts   String
+  createdAt   DateTime  @default(now())
+  expiresAt   DateTime
+  resolvedAt  DateTime?
+  resolution  String? // replace | keep | expired | superseded
+
+  @@index([userId, resolvedAt])
+  @@index([candidateId])
+}
+
 // One row per Claude API call — powers the monthly budget guard
 model SpendLog {
   id           String   @id @default(cuid())
