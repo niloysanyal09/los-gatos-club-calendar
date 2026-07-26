@@ -36,7 +36,8 @@ export default async function DigestPage() {
         <div>
           <h1>This week&apos;s picks</h1>
           <p className="sub">
-            Ranked for you{user.address ? ` · within ${user.radiusMiles} mi of home` : ""}
+            Ranked for you
+            {user.address ? ` · within ${user.radiusMiles} mi of ${user.address}` : ""}
             {!user.calendarLinked && " · calendar not linked yet"}
           </p>
         </div>

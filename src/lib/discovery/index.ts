@@ -15,6 +15,24 @@ const ALL_LANES: Lane[] = ["clubs", "movies", "events", "tv-sports"];
  * - deep:  all 4 lanes, 4 searches each (~$0.40-0.60) — weekly
  * - light: fast-changing lanes only (events, TV), 2 searches each (~$0.10-0.15) — daily
  */
+async function urlLooksAlive(url: string): Promise<boolean> {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 6000);
+    const res = await fetch(url, {
+      redirect: "follow",
+      signal: ctrl.signal,
+      headers: { "User-Agent": "Mozilla/5.0 (iPhone; jarvis-link-check)" },
+    });
+    clearTimeout(timer);
+    if (res.status === 404 || res.status === 410) return false;
+    if (/maintenance|page-not-found/i.test(res.url)) return false;
+    return true;
+  } catch {
+    return true; // transient network issues shouldn't strip a link
+  }
+}
+
 const MODES = {
   // Weekly deep scan: Sonnet quality across all lanes (~$1.50-2 cached)
   deep: { lanes: ALL_LANES, searches: 4, model: "claude-sonnet-5" },
@@ -87,6 +105,18 @@ export async function runDiscovery(
   // 2. Keep future events only; upsert as candidates (dedupe on stable key)
   const now = Date.now();
   const fresh = all.filter((e) => Date.parse(e.startTime) > now);
+
+  // 2a. Validate links so a dead URL never reaches a digest. Only clearly-dead
+  // links are dropped (404/410 or a maintenance redirect) — 403/429 are kept
+  // since bot-hostile sites often serve those to us but fine pages to humans.
+  await Promise.all(
+    fresh.map(async (e) => {
+      if (e.url && !(await urlLooksAlive(e.url))) {
+        console.warn(`discovery: dropping dead link ${e.url} (${e.title})`);
+        e.url = undefined;
+      }
+    })
+  );
   let added = 0;
   const createdIds: string[] = [];
   for (const e of fresh) {
