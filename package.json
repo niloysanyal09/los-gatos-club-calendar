@@ -10,7 +10,8 @@
     "test:oauth": "tsx scripts/test-oauth-merge.ts",
     "test:conflict": "tsx scripts/test-conflict-flow.ts",
     "daily": "tsx scripts/daily.ts",
-    "bridge": "tsx scripts/imessage-bridge.ts"
+    "bridge": "tsx scripts/imessage-bridge.ts",
+    "postinstall": "prisma generate"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.57.0",
