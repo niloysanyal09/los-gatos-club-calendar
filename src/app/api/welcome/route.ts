@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextResponse, after } from "next/server";
 import { prisma } from "@/lib/db";
 import { runDiscovery } from "@/lib/discovery";
 import { sendDigest } from "@/lib/messaging";
@@ -10,6 +10,8 @@ import { getSessionUserId } from "@/lib/session";
  * the first discovery in the background and text the first digest — the new
  * user's phone lights up minutes after the ad click.
  */
+export const maxDuration = 300; // background discovery needs the full window
+
 export async function POST() {
   const userId = await getSessionUserId();
   if (!userId) return NextResponse.json({ error: "not signed in" }, { status: 401 });
@@ -25,15 +27,16 @@ export async function POST() {
     );
   }
 
-  // Fire-and-forget: discovery + first digest happen after we respond
-  void (async () => {
+  // Runs after the response is sent — after() keeps the serverless function
+  // alive on Vercel (a bare floating promise would be frozen mid-flight)
+  after(async () => {
     try {
       await runDiscovery(userId, { scan: "light" });
       if (canText) await sendDigest(userId, { onlyNew: true });
     } catch (err) {
       console.error("welcome discovery failed:", err);
     }
-  })();
+  });
 
   return NextResponse.json({ ok: true, texting: canText });
 }
