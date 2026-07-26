@@ -93,15 +93,24 @@ RESPONSE FORMAT — respond with ONLY this JSON, nothing else:
 {"reply": "what to text back", "actions": [{"type": "book", "index": 3}]}
 actions is optional. Never mention JSON or actions in the reply text. If the user asks to book something, include the action AND write the reply as if it's done (the system appends details).`;
 
-  // Build alternating history (must start with a user turn)
+  // Build alternating history (must start with a user turn). Assistant turns
+  // are re-wrapped as JSON so the model's own history keeps demonstrating the
+  // required output format — plain-text history teaches it to drop the JSON.
   const past = history.reverse().map((m) => ({
     role: m.role as "user" | "assistant",
-    content: m.content,
+    content: m.role === "assistant" ? JSON.stringify({ reply: m.content }) : m.content,
   }));
   while (past.length && past[0].role === "assistant") past.shift();
   const turns = [...past, { role: "user" as const, content: text }];
 
-  const out = await converse<ChatTurn>(system, turns);
+  let out = await converse<ChatTurn>(system, turns);
+  if (!out) {
+    // One retry with an explicit format nudge before giving up
+    out = await converse<ChatTurn>(
+      system + "\n\nREMINDER: your ENTIRE response must be the JSON object — no prose before or after it.",
+      turns
+    );
+  }
   let reply = out?.reply?.trim() || "Sorry — I glitched there. Mind saying that again?";
 
   // Execute any actions and append real outcomes

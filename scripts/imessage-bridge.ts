@@ -83,6 +83,17 @@ function decodeAttributedBody(hex: string): string {
 // our own messages for user replies.
 const sentByJarvis = new Set<string>();
 
+// Texts already relayed in the last 2 minutes — the self chat surfaces each
+// message twice (sent + received copy), so identical repeats are dropped.
+const recentlyRelayed = new Map<string, number>();
+function alreadyRelayed(text: string): boolean {
+  const now = Date.now();
+  for (const [k, t] of recentlyRelayed) if (now - t > 120_000) recentlyRelayed.delete(k);
+  if (recentlyRelayed.has(text)) return true;
+  recentlyRelayed.set(text, now);
+  return false;
+}
+
 async function jarvisSentRecently(text: string): Promise<boolean> {
   if (sentByJarvis.has(text)) return true;
   const row = await prisma.outboundMessage.findFirst({
@@ -120,6 +131,10 @@ async function poll(phones: Map<string, string>, selfPhone: string) {
     if (!text) continue;
     const digits = handle.replace(/[^\d]/g, "").slice(-10);
     if (!phones.has(digits)) continue;
+    // Never re-ingest Jarvis's own output (the self chat mirrors sends as
+    // received copies) and never relay the same text twice.
+    if (await jarvisSentRecently(text)) continue;
+    if (alreadyRelayed(text)) continue;
     await relay(handle, text);
   }
 
@@ -142,6 +157,7 @@ async function poll(phones: Map<string, string>, selfPhone: string) {
     const text = rawText || decodeAttributedBody(bodyHex);
     if (!text) continue;
     if (await jarvisSentRecently(text)) continue;
+    if (alreadyRelayed(text)) continue;
     await relay(selfPhone, text);
   }
 
