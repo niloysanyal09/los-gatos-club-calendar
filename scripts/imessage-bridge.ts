@@ -54,15 +54,34 @@ async function relay(from: string, text: string) {
   console.log(`→ handled: ${JSON.stringify(data.results ?? data.error ?? data)}`);
 }
 
-async function poll(phones: Map<string, string>, selfPhone: string) {
-  // 0. Send anything the hosted app queued (welcome texts, digests)
-  const drained = await drainOutbox().catch((e) => {
-    console.error("outbox drain error:", e.message);
-    return 0;
-  });
-  if (drained) console.log(`→ sent ${drained} queued message(s) from the hosted app`);
+// Bodies Jarvis itself sent recently — so the self-chat scan never mistakes
+// our own messages for user replies.
+const sentByJarvis = new Set<string>();
 
-  // 1. Plain incoming texts (works when the sender isn't this Mac's account)
+async function jarvisSentRecently(text: string): Promise<boolean> {
+  if (sentByJarvis.has(text)) return true;
+  const row = await prisma.outboundMessage.findFirst({
+    where: { body: text, sentAt: { gt: new Date(Date.now() - 3 * 3600_000) } },
+  });
+  return !!row;
+}
+
+async function poll(phones: Map<string, string>, selfPhone: string) {
+  // 0. Send anything the hosted app queued (welcome texts, digests) —
+  //    remembering the bodies so the self-chat scan can skip them
+  try {
+    const queued = await prisma.outboundMessage.findMany({
+      where: { status: "queued" },
+      select: { body: true },
+    });
+    queued.forEach((q) => sentByJarvis.add(q.body));
+    const drained = await drainOutbox();
+    if (drained) console.log(`→ sent ${drained} queued message(s) from the hosted app`);
+  } catch (e) {
+    console.error("outbox drain error:", (e as Error).message);
+  }
+
+  // 1a. Incoming texts from other numbers (e.g. Sanjeev) — the normal case
   const rows = await query(
     `SELECT h.id, m.text, m.date FROM message m
      JOIN handle h ON m.handle_id = h.ROWID
@@ -74,6 +93,25 @@ async function poll(phones: Map<string, string>, selfPhone: string) {
     const digits = handle.replace(/[^\d]/g, "").slice(-10);
     if (!phones.has(digits)) continue;
     await relay(handle, text);
+  }
+
+  // 1b. Self-chat replies (texting Jarvis from this Mac's own number, the
+  //     solo-tester setup): those arrive as is_from_me=1 in the Notes-to-self
+  //     thread, so scope to that chat and skip anything Jarvis itself sent.
+  const selfDigits = selfPhone.replace(/[^\d]/g, "").slice(-10);
+  const selfRows = await query(
+    `SELECT m.text, m.date FROM message m
+     JOIN chat_message_join cmj ON cmj.message_id = m.ROWID
+     JOIN chat c ON c.ROWID = cmj.chat_id
+     WHERE m.is_from_me = 1 AND m.text IS NOT NULL AND m.date > ${sinceApple}
+       AND m.associated_message_type = 0
+       AND replace(replace(replace(c.chat_identifier,'+',''),'-',''),' ','') LIKE '%${selfDigits}'
+     ORDER BY m.date ASC LIMIT 50;`
+  );
+  for (const [text, date] of selfRows) {
+    sinceApple = Math.max(sinceApple, Number(date));
+    if (await jarvisSentRecently(text)) continue;
+    await relay(selfPhone, text);
   }
 
   // 2. Tapbacks (👍/👎/‼️ on a numbered pick) — unambiguous even in the
@@ -99,13 +137,13 @@ async function poll(phones: Map<string, string>, selfPhone: string) {
   }
 }
 
-async function main() {
+async function loadPhones(): Promise<Map<string, string>> {
   const users = await prisma.user.findMany({ where: { phone: { not: null } } });
-  const phones = new Map(users.map((u) => [u.phone!.replace(/[^\d]/g, "").slice(-10), u.id]));
-  if (!phones.size) {
-    console.log("No users with a phone number yet. Onboard first at " + APP);
-    return;
-  }
+  return new Map(users.map((u) => [u.phone!.replace(/[^\d]/g, "").slice(-10), u.id]));
+}
+
+async function main() {
+  let phones = await loadPhones();
   try {
     await query("SELECT 1;");
   } catch {
@@ -115,14 +153,18 @@ async function main() {
     );
     process.exit(1);
   }
-  const selfPhone = users[0].phone!;
+  const selfPhone = process.env.JARVIS_SELF_PHONE ?? [...phones.keys()][0] ?? "";
   console.log(
-    `Bridge running — watching replies and Tapbacks (👍 book · 👎 pass · ‼️ maybe) from ${phones.size} user(s). Ctrl-C to stop.`
+    `Bridge running — gateway for ${phones.size} user(s); replies, chat, and Tapbacks (👍 book · 👎 pass · ‼️ maybe) all flow through here. Ctrl-C to stop.`
   );
-  setInterval(
-    () => poll(phones, selfPhone).catch((e) => console.error("poll error:", e.message)),
-    POLL_MS
-  );
+  let tick = 0;
+  setInterval(() => {
+    void (async () => {
+      // Pick up newly onboarded users (e.g. Sanjeev) without a restart
+      if (tick++ % 6 === 0) phones = await loadPhones().catch(() => phones);
+      await poll(phones, selfPhone);
+    })().catch((e) => console.error("poll error:", (e as Error).message));
+  }, POLL_MS);
 }
 
 main();
