@@ -14,9 +14,11 @@
  *   npx tsx scripts/imessage-bridge.ts
  */
 import "./loadEnv";
+process.env.JARVIS_IMESSAGE_GATEWAY = "local"; // this process IS the Mac gateway
 import { execFile } from "child_process";
 import { promisify } from "util";
 import { prisma } from "../src/lib/db";
+import { drainOutbox } from "../src/lib/messaging/send";
 
 const exec = promisify(execFile);
 const CHAT_DB = `${process.env.HOME}/Library/Messages/chat.db`;
@@ -53,6 +55,13 @@ async function relay(from: string, text: string) {
 }
 
 async function poll(phones: Map<string, string>, selfPhone: string) {
+  // 0. Send anything the hosted app queued (welcome texts, digests)
+  const drained = await drainOutbox().catch((e) => {
+    console.error("outbox drain error:", e.message);
+    return 0;
+  });
+  if (drained) console.log(`→ sent ${drained} queued message(s) from the hosted app`);
+
   // 1. Plain incoming texts (works when the sender isn't this Mac's account)
   const rows = await query(
     `SELECT h.id, m.text, m.date FROM message m

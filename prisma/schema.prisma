@@ -94,6 +94,21 @@ model PendingConflict {
   @@index([candidateId])
 }
 
+// Texts queued by the hosted app (Vercel can't send iMessage); the Mac's
+// bridge daemon drains this queue and sends via Messages.
+model OutboundMessage {
+  id        String    @id @default(cuid())
+  channel   String // imessage | sms
+  to        String
+  body      String
+  status    String    @default("queued") // queued | sent | failed
+  attempts  Int       @default(0)
+  createdAt DateTime  @default(now())
+  sentAt    DateTime?
+
+  @@index([status, createdAt])
+}
+
 // One row per Claude API call — powers the monthly budget guard
 model SpendLog {
   id           String   @id @default(cuid())
