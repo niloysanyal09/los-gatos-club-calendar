@@ -54,6 +54,31 @@ async function relay(from: string, text: string) {
   console.log(`→ handled: ${JSON.stringify(data.results ?? data.error ?? data)}`);
 }
 
+/**
+ * Newer macOS often leaves message.text NULL and stores the content in the
+ * attributedBody blob (NSKeyedArchiver). Extract the string: after the
+ * "NSString" marker comes 0x2B ('+'), then a length byte (or 0x81 + uint16),
+ * then the UTF-8 text.
+ */
+function decodeAttributedBody(hex: string): string {
+  try {
+    const buf = Buffer.from(hex, "hex");
+    const marker = buf.indexOf(Buffer.from("NSString"));
+    if (marker < 0) return "";
+    const plus = buf.indexOf(0x2b, marker);
+    if (plus < 0) return "";
+    let len = buf[plus + 1];
+    let start = plus + 2;
+    if (len === 0x81) {
+      len = buf.readUInt16LE(plus + 2);
+      start = plus + 4;
+    }
+    return buf.subarray(start, start + len).toString("utf8");
+  } catch {
+    return "";
+  }
+}
+
 // Bodies Jarvis itself sent recently — so the self-chat scan never mistakes
 // our own messages for user replies.
 const sentByJarvis = new Set<string>();
@@ -83,13 +108,16 @@ async function poll(phones: Map<string, string>, selfPhone: string) {
 
   // 1a. Incoming texts from other numbers (e.g. Sanjeev) — the normal case
   const rows = await query(
-    `SELECT h.id, m.text, m.date FROM message m
+    `SELECT h.id, m.text, hex(m.attributedBody), m.date FROM message m
      JOIN handle h ON m.handle_id = h.ROWID
-     WHERE m.is_from_me = 0 AND m.text IS NOT NULL AND m.date > ${sinceApple}
+     WHERE m.is_from_me = 0 AND (m.text IS NOT NULL OR m.attributedBody IS NOT NULL)
+       AND m.associated_message_type = 0 AND m.date > ${sinceApple}
      ORDER BY m.date ASC LIMIT 50;`
   );
-  for (const [handle, text, date] of rows) {
+  for (const [handle, rawText, bodyHex, date] of rows) {
     sinceApple = Math.max(sinceApple, Number(date));
+    const text = rawText || decodeAttributedBody(bodyHex);
+    if (!text) continue;
     const digits = handle.replace(/[^\d]/g, "").slice(-10);
     if (!phones.has(digits)) continue;
     await relay(handle, text);
@@ -100,16 +128,19 @@ async function poll(phones: Map<string, string>, selfPhone: string) {
   //     thread, so scope to that chat and skip anything Jarvis itself sent.
   const selfDigits = selfPhone.replace(/[^\d]/g, "").slice(-10);
   const selfRows = await query(
-    `SELECT m.text, m.date FROM message m
+    `SELECT m.text, hex(m.attributedBody), m.date FROM message m
      JOIN chat_message_join cmj ON cmj.message_id = m.ROWID
      JOIN chat c ON c.ROWID = cmj.chat_id
-     WHERE m.is_from_me = 1 AND m.text IS NOT NULL AND m.date > ${sinceApple}
+     WHERE m.is_from_me = 1 AND (m.text IS NOT NULL OR m.attributedBody IS NOT NULL)
+       AND m.date > ${sinceApple}
        AND m.associated_message_type = 0
        AND replace(replace(replace(c.chat_identifier,'+',''),'-',''),' ','') LIKE '%${selfDigits}'
      ORDER BY m.date ASC LIMIT 50;`
   );
-  for (const [text, date] of selfRows) {
+  for (const [rawText, bodyHex, date] of selfRows) {
     sinceApple = Math.max(sinceApple, Number(date));
+    const text = rawText || decodeAttributedBody(bodyHex);
+    if (!text) continue;
     if (await jarvisSentRecently(text)) continue;
     await relay(selfPhone, text);
   }
