@@ -96,6 +96,17 @@ model PendingConflict {
   @@index([candidateId])
 }
 
+// SMS conversation memory — Jarvis remembers the thread across texts
+model ChatMessage {
+  id        String   @id @default(cuid())
+  userId    String
+  role      String // user | assistant
+  content   String
+  createdAt DateTime @default(now())
+
+  @@index([userId, createdAt])
+}
+
 // Texts queued by the hosted app (Vercel can't send iMessage); the Mac's
 // bridge daemon drains this queue and sends via Messages.
 model OutboundMessage {

@@ -99,6 +99,41 @@ export async function claudeJSON<T>(prompt: string): Promise<T | null> {
   }
 }
 
+/**
+ * Multi-turn conversation call for the SMS chat layer. Runs on a cheap model
+ * (Haiku by default; JARVIS_CHAT_MODEL to override) — roughly half a cent per
+ * exchange, so back-and-forth texting stays inside the monthly budget.
+ */
+export async function converse<T>(
+  system: string,
+  history: { role: "user" | "assistant"; content: string }[]
+): Promise<T | null> {
+  if (!anthropicConfigured()) return null;
+  try {
+    const msg = await client().messages.create({
+      model: process.env.JARVIS_CHAT_MODEL ?? "claude-haiku-4-5",
+      max_tokens: 1000,
+      system,
+      messages: history,
+    });
+    await recordSpend({
+      inputTokens: msg.usage.input_tokens,
+      outputTokens: msg.usage.output_tokens,
+      searches: 0,
+      cacheRead: msg.usage.cache_read_input_tokens ?? 0,
+      cacheWrite: msg.usage.cache_creation_input_tokens ?? 0,
+    });
+    const text = msg.content
+      .filter((b): b is Anthropic.TextBlock => b.type === "text")
+      .map((b) => b.text)
+      .join("\n");
+    return parseJSON<T>(text);
+  } catch (err) {
+    console.error("converse failed:", err);
+    return null;
+  }
+}
+
 function parseJSON<T>(text: string): T | null {
   // Accept raw JSON, fenced JSON, or JSON embedded in prose.
   const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/);

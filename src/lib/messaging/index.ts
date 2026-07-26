@@ -1,4 +1,5 @@
-import { findActiveConflict, parseConflicts, resolveConflict } from "../conflicts";
+import { findActiveConflict, resolveConflict } from "../conflicts";
+import { handleChat } from "../chat";
 import { prisma } from "../db";
 import { applyAction } from "../feedback";
 import {
@@ -142,15 +143,21 @@ export async function handleInbound(userId: string, text: string) {
         .join("\n\n")
     : results.length
       ? confirmationText(results)
-      : active
-        ? // A question is still open — re-ask it rather than sending generic
-          // digest help that ignores what we last asked.
-          conflictPromptText(
-            active.candidate.title,
-            active.candidate.startTime,
-            parseConflicts(active.pending)
-          )
-        : 'I didn\'t catch a decision there. Reply with pick numbers to book (e.g. "1, 3"), "no 2" to pass, or "maybe 4".';
+      : // Not a digest command — hand the text to the conversational layer.
+        // Jarvis answers in natural language (it knows the picks, bookings,
+        // rules, and any open conflict question) and can act from there.
+        await handleChat(userId, text);
+
+  // handleChat stores its own exchanges; log the command-path ones too so the
+  // conversation memory never has gaps.
+  if (results.length || conflictPrompts.length) {
+    await prisma.chatMessage.createMany({
+      data: [
+        { userId, role: "user", content: text },
+        { userId, role: "assistant", content: reply },
+      ],
+    });
+  }
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
   if (user?.phone) await sendMessage(user.channel, user.phone, reply);
