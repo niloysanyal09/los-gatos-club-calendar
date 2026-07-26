@@ -1,5 +1,12 @@
 import { CandidateEvent } from "@prisma/client";
 
+/** Plain-words description of clashing events: `"Title" (Fri, Jul 31, 5:00 – 6:30 PM)` */
+export function conflictSummary(
+  conflicts: { title: string; start: Date; end: Date }[]
+): string {
+  return conflicts.map((c) => `"${c.title}" (${span(c.start, c.end)})`).join(" and ");
+}
+
 const LANE_LABEL: Record<string, string> = {
   clubs: "Clubs & sessions",
   movies: "Movies",
@@ -31,7 +38,8 @@ export function pickText(c: CandidateEvent): string {
   ];
   if (c.rationale) lines.push(c.rationale);
   if (c.url) lines.push(`🎟 ${c.url}`);
-  if (c.conflict) lines.push("⚠️ overlaps something on your calendar");
+  if (c.conflict)
+    lines.push(`⚠️ clashes with ${c.conflictWith ?? "something already on your calendar"}`);
   return lines.join("\n");
 }
 

@@ -16,6 +16,7 @@ interface Item {
   score: number | null;
   rationale: string | null;
   conflict: boolean;
+  conflictWith: string | null;
   source: string;
 }
 
@@ -121,7 +122,11 @@ export default function DigestClient({
                   </div>
                   {c.rationale && <p className="why">“{c.rationale}”</p>}
                   <div className="row" style={{ marginTop: 8 }}>
-                    {c.conflict && <span className="badge conflict">⚠ calendar conflict</span>}
+                    {c.conflict && (
+                      <span className="badge conflict">
+                        ⚠ clashes with {c.conflictWith ?? "an event on your calendar"}
+                      </span>
+                    )}
                     {c.source === "demo" && <span className="badge demo">seeded — real event</span>}
                     {c.url && (
                       <a href={c.url} target="_blank" rel="noreferrer" className="badge">

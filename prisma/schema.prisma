@@ -66,6 +66,8 @@ model CandidateEvent {
   score         Int?
   rationale     String?
   conflict      Boolean   @default(false)
+  // Plain-words description of what it clashes with, e.g. `"Rhea's recital" (Fri, Jul 31, 5:00 – 6:30 PM)`
+  conflictWith  String?
   status        String    @default("proposed") // proposed | approved | declined | snoozed | booked
   googleEventId String?
   digestIndex   Int? // number assigned in the last SMS digest ("reply 1,3")

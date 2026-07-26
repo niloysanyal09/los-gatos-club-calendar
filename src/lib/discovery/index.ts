@@ -1,5 +1,6 @@
 import { prisma } from "../db";
-import { busyWindows, overlaps } from "../google/calendar";
+import { busyWindows, findConflicts, overlaps } from "../google/calendar";
+import { conflictSummary } from "../messaging/format";
 import { parseLearned } from "../preferences/learner";
 import { scoreEvents } from "../ranking/scorer";
 import { anthropicConfigured } from "../anthropic";
@@ -194,8 +195,17 @@ export async function runDiscovery(
       for (const p of proposals) {
         const end = p.endTime ?? new Date(p.startTime.getTime() + 2 * 3600_000);
         const conflict = overlaps(p.startTime, end, busy);
-        if (conflict !== p.conflict) {
-          await prisma.candidateEvent.update({ where: { id: p.id }, data: { conflict } });
+        if (conflict !== p.conflict || (conflict && !p.conflictWith)) {
+          // Name the clash in plain words so digests can say WHAT it overlaps
+          let conflictWith: string | null = null;
+          if (conflict) {
+            const clashes = await findConflicts(userId, p.startTime, end).catch(() => null);
+            if (clashes?.length) conflictWith = conflictSummary(clashes);
+          }
+          await prisma.candidateEvent.update({
+            where: { id: p.id },
+            data: { conflict, conflictWith },
+          });
         }
       }
     }

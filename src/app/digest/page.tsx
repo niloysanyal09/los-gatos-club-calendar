@@ -70,6 +70,7 @@ export default async function DigestPage() {
             score: c.score,
             rationale: c.rationale,
             conflict: c.conflict,
+            conflictWith: c.conflictWith,
             source: c.source,
           })),
         }))}
