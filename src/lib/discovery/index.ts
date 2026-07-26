@@ -5,6 +5,7 @@ import { parseLearned } from "../preferences/learner";
 import { scoreEvents } from "../ranking/scorer";
 import { anthropicConfigured } from "../anthropic";
 import { demoEvents } from "./demoData";
+import { staticFeedEvents } from "./staticFeeds";
 import { ticketmasterLane, webAgentLane } from "./lanes";
 import { underBudget, MONTHLY_BUDGET_USD } from "../spend";
 import { dedupeKey, DiscoveryContext, Lane, RawEvent } from "./types";
@@ -102,6 +103,10 @@ export async function runDiscovery(
     all = demoEvents();
     mode = anthropicConfigured() ? "live" : "demo";
   }
+
+  // Static feeds (pre-consolidated local calendars) are free — always merge
+  // them for users inside a feed's area. Zero tokens, zero searches.
+  all = [...all, ...staticFeedEvents({ lat: ctx.lat, lng: ctx.lng, radiusMiles: ctx.radiusMiles })];
 
   // 2. Keep future events only; upsert as candidates (dedupe on stable key)
   const now = Date.now();

@@ -13,7 +13,7 @@ export interface RawEvent {
   endTime?: string; // ISO
   cost?: string;
   url?: string;
-  source: "ticketmaster" | "web-agent" | "demo";
+  source: "ticketmaster" | "web-agent" | "demo" | "feed";
 }
 
 export function dedupeKey(e: RawEvent): string {
