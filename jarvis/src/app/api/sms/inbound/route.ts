@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { handleInbound } from "@/lib/messaging";
 
+// A first text may launch the full discovery pass when the scheduled digest
+// was missed. Keep the webhook alive long enough to finish that work.
+export const maxDuration = 300;
+
 /**
  * Inbound message webhook.
  * Accepts JSON {"from": "+1650...", "text": "1, 3"} (used by the iMessage
