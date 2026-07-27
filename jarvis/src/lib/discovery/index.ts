@@ -15,7 +15,7 @@ const ALL_LANES: Lane[] = ["clubs", "movies", "events", "tv-sports"];
 /**
  * Scan modes (the cost lever):
  * - deep:  all 4 lanes, 4 searches each (~$0.40-0.60) — weekly
- * - light: fast-changing lanes only (events, TV), 2 searches each (~$0.10-0.15) — daily
+ * - light: one focused pass across clubs, local events, and TV/streaming — daily
  */
 async function urlLooksAlive(url: string): Promise<boolean> {
   try {
@@ -38,12 +38,12 @@ async function urlLooksAlive(url: string): Promise<boolean> {
 const MODES = {
   // Weekly deep scan: Sonnet quality across all lanes (~$1.50-2 cached)
   deep: { lanes: ALL_LANES, searches: 4, model: "claude-sonnet-5" },
-  // Daily light scan: Haiku on the fast-changing lanes (~$0.20-0.25) — simple
-  // event extraction where the cheaper model is sufficient. Ranking stays on
-  // Sonnet either way.
+  // Daily light scan: a single Haiku search for each of the three demo-critical
+  // lanes. This keeps Blossom Hill club data current without the cost of the
+  // full weekly sweep. Ranking stays on Sonnet either way.
   light: {
-    lanes: ["events", "tv-sports"] as Lane[],
-    searches: 2,
+    lanes: ["clubs", "events", "tv-sports"] as Lane[],
+    searches: 1,
     model: process.env.JARVIS_LIGHT_MODEL ?? "claude-haiku-4-5",
   },
 };

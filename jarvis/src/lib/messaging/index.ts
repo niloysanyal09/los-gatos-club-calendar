@@ -2,6 +2,7 @@ import { findActiveConflict, resolveConflict } from "../conflicts";
 import { handleChat } from "../chat";
 import { prisma } from "../db";
 import { applyAction } from "../feedback";
+import { runDiscovery } from "../discovery";
 import {
   confirmationText,
   conflictPromptText,
@@ -111,6 +112,41 @@ export async function handleInbound(userId: string, text: string) {
     where: { userId, digestIndex: { not: null }, status: "proposed" },
     orderBy: { digestIndex: "asc" },
   });
+
+  // A user may text after their scheduled welcome/digest window has passed.
+  // Treat their first text as a start signal: run the inexpensive live scan
+  // and send a normal numbered digest rather than answering that no picks
+  // exist yet. Subsequent conversation follows the ordinary chat path.
+  if (!digest.length) {
+    const priorMessages = await prisma.chatMessage.count({ where: { userId } });
+    if (priorMessages === 0) {
+      try {
+        const scan = await runDiscovery(userId, { scan: "light" });
+        if (scan.added > 0) {
+          const starter = await sendDigest(userId, { onlyNew: true });
+          if (starter.ok) {
+            const reply = "I missed the morning drop, so I just ran a fresh scan and sent your starter picks above. Reply with a number to book, or tell me what you want more or less of.";
+            await prisma.chatMessage.createMany({
+              data: [
+                { userId, role: "user", content: text },
+                { userId, role: "assistant", content: reply },
+              ],
+            });
+            const user = await prisma.user.findUnique({ where: { id: userId } });
+            if (user?.phone) await sendMessage(user.channel, user.phone, reply);
+            return {
+              results: [],
+              reply,
+              starterDigest: "count" in starter ? starter.count : 0,
+            };
+          }
+        }
+      } catch (err) {
+        console.error("starter discovery failed:", err);
+      }
+    }
+  }
+
   const parsed = await parseReply(
     text,
     digest.map((d) => ({ index: d.digestIndex!, title: d.title }))
