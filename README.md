@@ -1,5 +1,14 @@
 # Los Gatos Club Activity Calendar
 
+## Combined product repository
+
+This repository contains two complementary product surfaces:
+
+- The root app is the public Los Gatos club-activity calendar and QC dashboard.
+- [`jarvis/`](./jarvis) is the SMS-first Jarvis concierge. It uses the club calendar as a zero-cost local discovery feed, then supports iMessage-based digests, free-text conversation, booking, and preference learning.
+
+The calendar remains independently deployable from the repository root. The Jarvis app is independently deployable from `jarvis/` and requires its documented environment configuration, database, and Mac iMessage gateway for end-to-end messaging.
+
 This site consolidates public activity data from private and membership-style clubs within an approximate 10-mile radius of:
 
 `798-1 Blossom Hill Rd Los Gatos, CA 95032`

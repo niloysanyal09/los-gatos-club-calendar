@@ -104,9 +104,12 @@ export async function runDiscovery(
     mode = anthropicConfigured() ? "live" : "demo";
   }
 
-  // Static feeds (pre-consolidated local calendars) are free — always merge
-  // them for users inside a feed's area. Zero tokens, zero searches.
-  all = [...all, ...staticFeedEvents({ lat: ctx.lat, lng: ctx.lng, radiusMiles: ctx.radiusMiles })];
+  // Static feeds keep the no-key demo useful. Live discovery is the primary
+  // source in every location, including Blossom Hill / Los Gatos, so the
+  // assistant works from current source pages rather than a frozen snapshot.
+  if (!anthropicConfigured()) {
+    all = [...all, ...staticFeedEvents({ lat: ctx.lat, lng: ctx.lng, radiusMiles: ctx.radiusMiles })];
+  }
 
   // 2. Keep future events only; upsert as candidates (dedupe on stable key)
   const now = Date.now();

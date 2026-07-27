@@ -30,13 +30,40 @@ Match to these interests: ${interests}. Check Eventbrite, Meetup, local city cal
       const cricket = ctx.sportsTeams.some((t) => /cricket/i.test(t))
         ? `\nCRICKET: check Willow TV's schedule (willow.tv) first — it carries most international and franchise cricket in the US. Include upcoming matches (internationals, IPL/T20 leagues, The Hundred) with how to watch: Willow (via Sling, DirecTV, Spectrum, or the Willow app), ESPN+, or other US streamers. Put the channel/app in venueName.`
         : "";
-      return `Find upcoming televised sporting events in the next 10 days for these teams/sports: ${ctx.sportsTeams.join(", ") || interests}.${cricket}
-Use TV guides / league schedules. venueName should be the TV channel or streaming service. All times US Pacific. ${JSON_SHAPE}`;
+      return `Find upcoming televised sports AND relevant scheduled streaming releases in the next 10 days for these teams, sports, and interests: ${ctx.sportsTeams.join(", ") || interests}.${cricket}
+Use public schedule pages efficiently: one broad guide plus the best direct source where needed. Cover public listings for YouTube TV live channels, Apple TV / Apple TV+, HBO / Max, ESPN, NBC, CBS, ABC, FOX, TNT/TBS, and other major streaming or network channels when they carry a genuinely relevant upcoming program. Do not claim access to a user's private guide, subscription, DVR, or paid catalog. Prefer exact air/release times and state the channel or streaming service in venueName. All times US Pacific. ${JSON_SHAPE}`;
     }
   }
 }
 
 type AgentEvent = Omit<RawEvent, "lane" | "source" | "distanceMiles">;
+
+type TicketmasterEvent = {
+  name?: string;
+  info?: string;
+  pleaseNote?: string;
+  url?: string;
+  dates?: { start?: { dateTime?: string } };
+  classifications?: Array<{ genre?: { name?: string } }>;
+  priceRanges?: Array<{ min?: number; max?: number }>;
+  _embedded?: {
+    venues?: Array<{
+      name?: string;
+      address?: { line1?: string };
+      city?: { name?: string };
+    }>;
+  };
+};
+
+function isTicketmasterEvent(value: unknown): value is TicketmasterEvent {
+  return typeof value === "object" && value !== null;
+}
+
+function hasTicketmasterStart(
+  value: TicketmasterEvent
+): value is TicketmasterEvent & { name: string; dates: { start: { dateTime: string } } } {
+  return typeof value.name === "string" && typeof value.dates?.start?.dateTime === "string";
+}
 
 export async function webAgentLane(
   lane: Lane,
@@ -65,10 +92,11 @@ export async function ticketmasterLane(
     const res = await fetch(url);
     if (!res.ok) return [];
     const data = await res.json();
-    const events = data?._embedded?.events ?? [];
+    const events: unknown[] = data?._embedded?.events ?? [];
     return events
-      .filter((e: any) => e?.dates?.start?.dateTime)
-      .map((e: any): RawEvent => {
+      .filter(isTicketmasterEvent)
+      .filter(hasTicketmasterStart)
+      .map((e): RawEvent => {
         const venue = e._embedded?.venues?.[0];
         return {
           lane: "events",
