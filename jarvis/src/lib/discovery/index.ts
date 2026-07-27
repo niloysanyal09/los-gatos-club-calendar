@@ -1,11 +1,10 @@
+import { geocodeExact, milesBetween } from "../geo";
 import { prisma } from "../db";
 import { busyWindows, findConflicts, overlaps } from "../google/calendar";
 import { conflictSummary } from "../messaging/format";
 import { parseLearned } from "../preferences/learner";
 import { scoreEvents } from "../ranking/scorer";
 import { anthropicConfigured } from "../anthropic";
-import { demoEvents } from "./demoData";
-import { staticFeedEvents } from "./staticFeeds";
 import { ticketmasterLane, webAgentLane } from "./lanes";
 import { underBudget, MONTHLY_BUDGET_USD } from "../spend";
 import { dedupeKey, DiscoveryContext, Lane, RawEvent } from "./types";
@@ -55,6 +54,27 @@ export interface DiscoverySummary {
   laneCounts: Record<string, number>;
 }
 
+/**
+ * Local recommendations are fail-closed: a venue without a geocodable street
+ * address, or one outside the user's radius, never enters the candidate pool.
+ * TV/streaming is intentionally exempt because it is a watch-from-home option.
+ */
+async function withinCatchment(events: RawEvent[], ctx: DiscoveryContext): Promise<RawEvent[]> {
+  const inRange: RawEvent[] = [];
+  for (const event of events) {
+    if (event.lane === "tv-sports") {
+      inRange.push(event);
+      continue;
+    }
+    if (!event.venueAddress) continue;
+    const venue = await geocodeExact(event.venueAddress);
+    if (!venue) continue;
+    const distanceMiles = milesBetween(ctx, venue);
+    if (distanceMiles <= ctx.radiusMiles) inRange.push({ ...event, distanceMiles });
+  }
+  return inRange;
+}
+
 /** Full discovery + ranking + conflict-check pass for one user. */
 export async function runDiscovery(
   userId: string,
@@ -99,17 +119,10 @@ export async function runDiscovery(
     ]);
     all = [...tm, ...agentLanes.flatMap((r) => r ?? [])];
   }
-  if (all.length === 0) {
-    all = demoEvents();
-    mode = anthropicConfigured() ? "live" : "demo";
-  }
-
-  // Static feeds keep the no-key demo useful. Live discovery is the primary
-  // source in every location, including Blossom Hill / Los Gatos, so the
-  // assistant works from current source pages rather than a frozen snapshot.
-  if (!anthropicConfigured()) {
-    all = [...all, ...staticFeedEvents({ lat: ctx.lat, lng: ctx.lng, radiusMiles: ctx.radiusMiles })];
-  }
+  // Do not substitute a generic city snapshot when live discovery is empty:
+  // returning fewer recommendations is always better than recommending the
+  // wrong city's events.
+  all = await withinCatchment(all, ctx);
 
   // 2. Keep future events only; upsert as candidates (dedupe on stable key)
   const now = Date.now();

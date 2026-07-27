@@ -5,17 +5,26 @@ const FALLBACK = { lat: 37.4529, lng: -122.1817 }; // Menlo Park, CA
 export async function geocode(
   address: string
 ): Promise<{ lat: number; lng: number }> {
+  return (await geocodeExact(address)) ?? FALLBACK;
+}
+
+/** Geocode a venue for distance validation. Fail closed when it cannot resolve. */
+export async function geocodeExact(
+  address: string
+): Promise<{ lat: number; lng: number } | null> {
   try {
     const url = `https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`;
     const res = await fetch(url, {
       headers: { "User-Agent": "jarvis-in-your-pocket-poc/0.1" },
     });
-    if (!res.ok) return FALLBACK;
+    if (!res.ok) return null;
     const data = (await res.json()) as { lat: string; lon: string }[];
-    if (!data.length) return FALLBACK;
-    return { lat: parseFloat(data[0].lat), lng: parseFloat(data[0].lon) };
+    if (!data.length) return null;
+    const lat = parseFloat(data[0].lat);
+    const lng = parseFloat(data[0].lon);
+    return Number.isFinite(lat) && Number.isFinite(lng) ? { lat, lng } : null;
   } catch {
-    return FALLBACK;
+    return null;
   }
 }
 

@@ -18,14 +18,14 @@ function lanePrompt(lane: Lane, ctx: DiscoveryContext): string {
         : "";
       return `Find clubs and studios ${loc} with sessions matching these interests: ${interests}.
 ALWAYS include PRIVATE clubs (swim & racquet, golf/country, athletic, social clubs) in the sweep — read the public-facing events/calendar pages on their websites, which clubs publish to attract new members. Include those events regardless of whether the user is a member; note "Members & guests" in cost when applicable.${member}
-Also cover public options: run clubs, yoga/pilates studios, book clubs, hobby groups. If a club lists a recurring/annual event without an exact date (e.g. "Labor Day Luau"), estimate the date from its seasonal anchor and append "(date estimated — confirm with club)" to the description. ${JSON_SHAPE}`;
+Also cover public options: run clubs, yoga/pilates studios, book clubs, hobby groups. Include a full street address in venueAddress for every local result; skip it if you cannot identify the venue address. If a club lists a recurring/annual event without an exact date (e.g. "Labor Day Luau"), estimate the date from its seasonal anchor and append "(date estimated — confirm with club)" to the description. ${JSON_SHAPE}`;
     }
     case "movies":
       return `Find movie theatres ${loc} and their showtimes for the next 10 days.
-Select movies this person would plausibly enjoy given interests: ${interests}. Prefer one good showtime per movie (evenings/weekends). ${JSON_SHAPE}`;
+Select movies this person would plausibly enjoy given interests: ${interests}. Prefer one good showtime per movie (evenings/weekends). Include a full street address in venueAddress; skip entries without one. ${JSON_SHAPE}`;
     case "events":
       return `Find local events ${loc} in the next 14 days: concerts, live music, meetups, festivals, community activities, talks.
-Match to these interests: ${interests}. Check Eventbrite, Meetup, local city calendars, venue sites. ${JSON_SHAPE}`;
+Match to these interests: ${interests}. Check Eventbrite, Meetup, local city calendars, venue sites. Include a full street address in venueAddress; skip entries without one. ${JSON_SHAPE}`;
     case "tv-sports": {
       const cricket = ctx.sportsTeams.some((t) => /cricket/i.test(t))
         ? `\nCRICKET: check Willow TV's schedule (willow.tv) first — it carries most international and franchise cricket in the US. Include upcoming matches (internationals, IPL/T20 leagues, The Hundred) with how to watch: Willow (via Sling, DirecTV, Spectrum, or the Willow app), ESPN+, or other US streamers. Put the channel/app in venueName.`
