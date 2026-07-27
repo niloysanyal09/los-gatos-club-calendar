@@ -123,12 +123,13 @@ export function conflictResolvedText(
 }
 
 export function confirmationText(
-  results: { title: string; action: string; booked: boolean; url?: string | null }[]
+  results: { title: string; action: string; booked: boolean; needsCalendarLink?: boolean; url?: string | null }[]
 ): string {
   if (!results.length)
     return "Got it — nothing booked. I'll keep learning from that.";
   const lines: string[] = [];
-  const booked = results.filter((r) => r.action === "approved");
+  const booked = results.filter((r) => r.action === "approved" && !r.needsCalendarLink);
+  const awaitingCalendar = results.filter((r) => r.action === "approved" && r.needsCalendarLink);
   const passed = results.filter((r) => r.action === "declined");
   const snoozed = results.filter((r) => r.action === "snoozed");
   if (booked.length) {
@@ -138,6 +139,10 @@ export function confirmationText(
       // Last mile: pay / reserve on their phone browser
       if (b.url) lines.push(`  🎟 Tickets/reserve: ${b.url}`);
     }
+  }
+  if (awaitingCalendar.length) {
+    lines.push("Ready to book — connect Google Calendar first");
+    for (const b of awaitingCalendar) lines.push(`• ${b.title} (not booked yet)`);
   }
   if (passed.length) lines.push(`Passed on: ${passed.map((p) => p.title).join("; ")}`);
   if (snoozed.length) lines.push(`Maybe later: ${snoozed.map((p) => p.title).join("; ")}`);

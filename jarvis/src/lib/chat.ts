@@ -2,6 +2,7 @@ import { converse } from "./anthropic";
 import { findActiveConflict, parseConflicts, resolveConflict } from "./conflicts";
 import { prisma } from "./db";
 import { applyAction } from "./feedback";
+import { consentUrl } from "./google/oauth";
 import { conflictPromptText, conflictResolvedText, conflictSummary } from "./messaging/format";
 import { parseLearned } from "./preferences/learner";
 import { underBudget } from "./spend";
@@ -121,12 +122,14 @@ actions is optional. Never mention JSON or actions in the reply text. If the use
         const c = picks.find((p) => p.digestIndex === a.index);
         if (!c) continue;
         const action = a.type === "book" ? "approved" : a.type === "pass" ? "declined" : "snoozed";
-        const { bookedOnCalendar, conflict } = await applyAction(c.id, action);
+        const { bookedOnCalendar, conflict, needsCalendarLink } = await applyAction(c.id, action);
         if (conflict) {
           extras.push(conflictPromptText(c.title, c.startTime, conflict.conflicts));
         } else if (action === "approved") {
           extras.push(
-            `✅ ${c.title}${bookedOnCalendar ? " — on your calendar" : ""}${c.url ? `\n🎟 ${c.url}` : ""}`
+            needsCalendarLink
+              ? `I’m ready to book ${c.title}, but I need your Google Calendar connected first: ${consentUrl(userId)}\nNothing is booked yet.`
+              : `✅ ${c.title}${bookedOnCalendar ? " — on your calendar" : ""}${c.url ? `\n🎟 ${c.url}` : ""}`
           );
         }
       } else if (a.type === "add_rule" && a.rule) {

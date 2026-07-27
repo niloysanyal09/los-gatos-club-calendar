@@ -3,6 +3,7 @@ import { handleChat } from "../chat";
 import { prisma } from "../db";
 import { applyAction } from "../feedback";
 import { runDiscovery } from "../discovery";
+import { consentUrl } from "../google/oauth";
 import {
   confirmationText,
   conflictPromptText,
@@ -114,14 +115,14 @@ export async function handleInbound(userId: string, text: string) {
   });
 
   // A user may text after their scheduled welcome/digest window has passed.
-  // Treat their first text as a start signal: run the inexpensive live scan
+  // Treat their first text as a start signal: run the full demo scan
   // and send a normal numbered digest rather than answering that no picks
   // exist yet. Subsequent conversation follows the ordinary chat path.
   if (!digest.length) {
     const priorMessages = await prisma.chatMessage.count({ where: { userId } });
     if (priorMessages === 0) {
       try {
-        const scan = await runDiscovery(userId, { scan: "light" });
+        const scan = await runDiscovery(userId, { scan: "deep" });
         if (scan.added > 0) {
           const starter = await sendDigest(userId, { onlyNew: true });
           if (starter.ok) {
@@ -157,7 +158,7 @@ export async function handleInbound(userId: string, text: string) {
   for (const p of parsed) {
     const candidate = digest.find((d) => d.digestIndex === p.index);
     if (!candidate) continue;
-    const { bookedOnCalendar, conflict } = await applyAction(candidate.id, p.action);
+    const { bookedOnCalendar, conflict, needsCalendarLink } = await applyAction(candidate.id, p.action);
     if (conflict) {
       // Held, not booked — the user gets asked instead of told.
       conflictPrompts.push(
@@ -169,11 +170,12 @@ export async function handleInbound(userId: string, text: string) {
       title: candidate.title,
       action: p.action,
       booked: bookedOnCalendar,
+      needsCalendarLink,
       url: candidate.url,
     });
   }
 
-  const reply = conflictPrompts.length
+  const baseReply = conflictPrompts.length
     ? [results.length ? confirmationText(results) : null, ...conflictPrompts]
         .filter(Boolean)
         .join("\n\n")
@@ -183,6 +185,9 @@ export async function handleInbound(userId: string, text: string) {
         // Jarvis answers in natural language (it knows the picks, bookings,
         // rules, and any open conflict question) and can act from there.
         await handleChat(userId, text);
+  const reply = results.some((result) => result.needsCalendarLink)
+    ? `${baseReply}\n\nConnect Google Calendar to finish booking: ${consentUrl(userId)}\nNothing is booked yet.`
+    : baseReply;
 
   // handleChat stores its own exchanges; log the command-path ones too so the
   // conversation memory never has gaps.

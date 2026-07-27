@@ -24,6 +24,13 @@ export async function applyAction(
   if (!c) throw new Error("candidate not found");
 
   if (action === "approved") {
+    const user = await prisma.user.findUnique({
+      where: { id: c.userId },
+      select: { calendarLinked: true },
+    });
+    if (!user?.calendarLinked) {
+      return { candidate: c, bookedOnCalendar: false, conflict: null, needsCalendarLink: true };
+    }
     const conflicts = await ops
       .findConflicts(c.userId, c.startTime, eventEnd(c))
       .catch((err) => {
@@ -40,6 +47,7 @@ export async function applyAction(
           pending: { id: string };
           conflicts: ConflictingEvent[];
         },
+        needsCalendarLink: false,
       };
     }
   }
@@ -70,5 +78,5 @@ export async function applyAction(
     where: { id: c.id },
     data: { status, googleEventId },
   });
-  return { candidate: updated, bookedOnCalendar: !!googleEventId, conflict: null };
+  return { candidate: updated, bookedOnCalendar: !!googleEventId, conflict: null, needsCalendarLink: false };
 }
