@@ -1,0 +1,16 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "jarvis",
+      "runtimeExecutable": "/Users/niloysanyal/.local/node/bin/npm",
+      "runtimeArgs": ["run", "dev"],
+      "cwd": "/Users/niloysanyal/Jarvis in your pocket",
+      "port": 3000,
+      "autoPort": true,
+      "env": {
+        "PATH": "/Users/niloysanyal/.local/node/bin:/usr/local/bin:/usr/bin:/bin"
+      }
+    }
+  ]
+}
